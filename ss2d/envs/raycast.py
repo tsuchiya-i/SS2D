@@ -90,6 +90,10 @@ class raycast(object):
                     if self.grid_map[pix[0]][pix[1]] > 0:
                         xy = np.array([pix[1]*self.xyreso,(self.grid_height-pix[0]-1)*self.xyreso])
                         d = np.linalg.norm(xy-self.pose[:2])
+                        if self.grid_map[pix[0]][pix[1]] == 2:
+                            human_TF = 1
+                        else:
+                            human_TF = 0
                         break
                 else:
                     d = self.max_range
@@ -97,7 +101,7 @@ class raycast(object):
                 x = d*math.cos(global_angle)
                 y = d*math.sin(global_angle)
 
-                raycast_data.append([x, y, angle, d, i, 0])
+                raycast_data.append([x, y, angle, d, i, human_TF])#human_TF(0,1)
 
         raycast_data = np.array(raycast_data)
         #print(total)
