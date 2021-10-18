@@ -29,7 +29,7 @@ for _ i in range(1000):
         env.reset()
 ```
 
-It should look someting like this
+It should look someting like this test
 
 ![demo](https://github.com/Sadaku1993/gym-pathplan/blob/master/sample.gif)
 
