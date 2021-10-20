@@ -17,7 +17,7 @@ import rvo2
 from time import time
 
 wall_switch = False
-human_n = 0
+human_n = 2
 human_mode = 6 #0:stop 1:straight 2:random 3:bound 4:onedirection 5:RVO_straight 6:RVO_near_waypoint
 
 human_detect = True#True#True
@@ -30,21 +30,16 @@ observe_mode = 1#0:old(11) 1:new(20)
 output_mode = True
 target_color = True
 
-
-"""
-cv2.imshow('image', img_thresh)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-"""
-
 class SS2D_env(gym.Env):
-    metadata = {'render.modes' : ['human', 'rgb_array']}
-
     def __init__(self):
         # world param
-        self.set_image_map()
-        #self.xyreso = 0.05*4 #[m/pix]
+        self.map_height= 0 #[pix]
+        self.map_width = 0 #[pix]
+        #self.set_image_map(__file__[:-24]+'maps/paint_map/line_025.png')
+        #self.set_image_map(__file__[:-24]+'maps/nakano_11f_sim.png',1.0/4)
         self.xyreso = 0.05*4 #[m/pix]
+        self.set_image_map(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
+        #self.xyreso = 0.05*4 #[m/pix]
         self.dt = 0.1 #[s]
         self.world_time= 0.0 #[s]
         self.step_count = 0 #[]
@@ -58,53 +53,39 @@ class SS2D_env(gym.Env):
         # action param
         self.max_velocity = 0.8   # [m/s]
         self.min_velocity = -0.4  # [m/s]
-        self.max_velocity_acceleration = 0.2  # [m/ss]
-        self.min_velocity_acceleration = -0.2 # [m/ss]
         self.min_angular_velocity = math.radians(-40)  # [rad/s]
         self.max_angular_velocity = math.radians(40) # [rad/s]
-        self.min_angular_acceleration = math.radians(-40)  # [rad/ss]
-        self.max_angular_acceleration = math.radians(40) # [rad/ss]
 
         # human param
         self.human_radius = 0.35 #[m]
-        self.near_n = 4 #人の行き先の選択肢の数
         self.nearest_j = [0] * human_n #
         self.target_point_num = [0] * human_n
         self.target_position = [[-1,-1]] * human_n
 
         # lidar param
-        self.yawreso = math.radians(10) # ※360から割り切れる(1~360)[rad]
+        self.yawreso = math.radians(5) # ※360から割り切れる(1~360)[rad]
         self.min_range = 0.20 # [m]
         self.max_range = 10.0 # [m]
         self.view_angle = math.radians(90) #[rad]
-
-        # map
-        max_map_size = max(self.map_width,self.map_height)
-        max_dist = max_map_size*self.xyreso
+        self.lidarnum = int(int(self.view_angle/(2*self.yawreso))*2+1)
 
         # set action_space (velocity[m/s], omega[rad/s])
         self.action_low  = np.array([self.min_velocity, self.min_angular_velocity]) 
         self.action_high = np.array([self.max_velocity, self.max_angular_velocity]) 
         self.action_space = spaces.Box(self.action_low, self.action_high, dtype=np.float32)
-        # state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
-        self.min_yaw  = math.radians(0)  # [rad]
-        self.max_yaw  = math.radians(360) # [rad]
-        self.state_low  = np.array([0.0, 0.0, self.min_yaw, self.min_velocity, self.min_angular_velocity])
-        self.state_high = np.array([0.0, 0.0, self.max_yaw, self.max_velocity, self.max_angular_velocity])
         # set observation_space
         if observe_mode == 0:
-            self.observation_low = np.concatenate([[0.0]*10 ,[-math.pi,]],0)
-            self.observation_high = np.concatenate([[self.max_range]*9 ,[max_dist,-math.pi]],0)
+            self.observation_low = np.concatenate([[0.0]*self.lidarnum ,[0.0, -math.pi,]],0)
+            self.observation_high = np.concatenate([[self.max_range]*self.lidarnum ,[self.max_dist,-math.pi]],0)
         elif observe_mode == 1:
-            self.observation_low = np.concatenate([[0.0]*19 ,[-math.pi,]],0)
-            self.observation_high = np.concatenate([[self.max_range]*18 ,[max_dist,-math.pi]],0)
+            self.observation_low = np.concatenate([[0.0]*(self.lidarnum*2) ,[0.0, -math.pi,]],0)
+            self.observation_high = np.concatenate([[self.max_range]*(self.lidarnum*2) ,[self.max_dist,-math.pi]],0)
         self.observation_space = spaces.Box(low = self.observation_low, high = self.observation_high, dtype=np.float32)
 
         #way point
-        self.way_pioint_set()
-        self.neighbors_vector_set(self.near_n)
-        self.human_state = []
-        self.start_p_num = random.randint(0, len(self.waypoints)-1)
+        self.way_point_set(0) #default:0
+        self.near_n = 4 #人の行き先の選択肢の数(現在地(停止)＋near_n)
+        self.neighbors_vector_set(self.near_n,neighbors_id=1)
 
         #rendering
         self.viewer = None
@@ -113,6 +94,16 @@ class SS2D_env(gym.Env):
     
     # 状態を初期化し、初期の観測値を返す
     def reset(self):
+        """
+        if self.reset_count%5 < 4:
+            self.set_image_map(__file__[:-24]+'maps/paint_map/line_025.png',self.xyreso)
+        if self.reset_count%5 == 4:
+            self.set_image_map(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
+        """
+        if self.viewer != None and self.change_map:
+            self.viewer.close()
+            self.viewer = None
+            self.change_map = False
         
         if world_map==0:
             if self.start_p_num == 19:
@@ -159,7 +150,7 @@ class SS2D_env(gym.Env):
 
         #initial human pose
         self.target_point_num = [0] * human_n
-        self.ini_human(human_n)
+        self.init_human(human_n)
         self.rvo_robot = self.sim.addAgent((self.state[0],self.state[1]))
         self.sim.setAgentVelocity(self.rvo_robot, (0.0,0.0))
         self.sim.doStep()
@@ -242,52 +233,36 @@ class SS2D_env(gym.Env):
 
         return self.observation, reward, self.done, {}
     
-    def set_image_map(self):
-        #mapファイル読み込み
-        if world_map==0:
-            im = cv2.imread(__file__[:-24]+'maps/paint_map/free_sim.png')
-        elif world_map==1:
-            #im = cv2.imread(__file__[:-24]+'maps/nakano_11f_sim.png')
-            im = cv2.imread(__file__[:-24]+'maps/nakano_11f_line025.png')
+    def set_image_map(self, map_file, xyreso, scale=1):
+        #self.map_height, width, self.map, self.original_map self.max_dist set
+        #mapファイル読み込み 2pixel以上ないと貫通可能性有り
+        im = cv2.imread(map_file)
         
-        iscale = 1
-        orgHeight, orgWidth = im.shape[:2]
-        size = (int(orgWidth/iscale), int(orgHeight/iscale))
-        im = cv2.resize(im, size)
+        if scale != 1:
+            orgHeight, orgWidth = im.shape[:2]
+            size = (int(orgWidth*scale), int(orgHeight*scale))
+            im = cv2.resize(im, size)
         
         im_gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         threshold = 25
         # 二値化(閾値100を超えた画素を255白にする。)
         ret, img_thresh = cv2.threshold(im_gray, threshold, 255, cv2.THRESH_BINARY)
+
+        #cv2.imshow('image',im)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
         
-        #mapファイル読み込み
-        if world_map==0:
-            lim = cv2.imread(__file__[:-24]+'maps/paint_map/free_025.png')
-        if world_map==1:
-            lim = cv2.imread(__file__[:-24]+'maps/nakano_11f_line025.png')
+        if img_thresh.shape[0] != self.map_height or img_thresh.shape[1] != self.map_width:
+            self.map_height= img_thresh.shape[0] #[pix]
+            self.map_width = img_thresh.shape[1] #[pix]
+            self.change_map = True
 
-        iscale = 1
-        orgHeight, orgWidth = im.shape[:2]
-        size = (int(orgWidth/iscale), int(orgHeight/iscale))
-        lim = cv2.resize(lim, size)
-        
-        lim_gray = cv2.cvtColor(lim, cv2.COLOR_BGR2GRAY)
-        lthreshold = 250
-        # 二値化(閾値100を超えた画素を255白にする。)
-        lret, limg_thresh = cv2.threshold(lim_gray, lthreshold, 255, cv2.THRESH_BINARY)
-
-
-        self.map_height= img_thresh.shape[0] #[pix]
-        self.map_width = img_thresh.shape[1] #[pix]
-
-        grid_map = np.where(img_thresh>100, 0, 1)
-        self.map = grid_map
-
+        self.map = np.where(img_thresh>100, 0, 1)
         self.original_map = np.where(img_thresh>100, 0, 1)
 
-        grid_map = np.zeros((self.map_height, self.map_width), dtype=np.int32)
-        self.linemap = np.where(limg_thresh>100, 0, 1)
-        return grid_map
+        self.xyreso = xyreso
+        self.max_dist = (self.map_height+self.map_width)*xyreso
+
 
     # ゴールに到達したかを判定
     def is_goal(self, show=False):
@@ -414,7 +389,7 @@ class SS2D_env(gym.Env):
         #print(observation)
         return observation#9本(0~),9本(0~),距離(0~),角度(0~1)(時計回りで増加)
 
-    def ini_human(self,num):
+    def init_human(self,num):
         self.human_state = []
         self.human_vel =[]
         rand_num_his = []
@@ -444,32 +419,20 @@ class SS2D_env(gym.Env):
                 self.human_vel.append(0.8)
                 self.inwall.append(False)
 
-    def way_pioint_set(self):
-        self.waypoints = np.empty((0,2))
-        squre = 15
-        self.dwidth = self.map_width*self.xyreso/squre
-        self.dheight = self.map_height*self.xyreso/squre
-        if world_map==0:
-            for i in range(squre):
-                for j in range(squre):
-                    if not (i==0 or i==squre-1 or j==0 or j==squre-1):
-                        self.waypoints = np.append(self.waypoints, np.array([[i*self.dwidth,j*self.dheight]]), axis=0)
-        elif world_map==1:
+    def way_point_set(self,waypoints_id=0):
+        if waypoints_id == 0:
             self.waypoints = np.array([[9, 8.5], [9, 12], [9, 16], [9, 19], [15, 19], [20, 19], [25, 19], [30, 19], [35, 19], [40.5, 18], [40.5, 16], [40.5, 13], [40.5, 11], [40.5, 8.5], [35, 8.5], [30, 8.5], [25, 8.5], [20, 8.5], [15, 8.5], [48, 11], [57, 11], [63, 11], [48, 16], [57, 16], [63, 16], [48, 13], [3, 14]])
             self.human_waypoints = np.array([[8.8, 19.0], [40.4, 18.2], [40.7, 16.0], [47.7, 16.1], [63.2, 16.0], [63.2, 10.8], [47.6, 10.8], [40.9, 10.6], [40.5, 8.], [8.8, 8.1]])
 
 
-    def neighbors_vector_set(self,n): #n個の近傍ウェイポイントセット
-        if world_map==0:
-            self.neighbors_array = np.empty((0,n+1))
-            for i in range(len(self.waypoints)):
-                dist_dict = {}
-                for j in range(len(self.waypoints)):
-                    #print(self.waypoints[i])
-                    dist_dict[j] = np.linalg.norm(self.waypoints[j]-self.waypoints[i])
-                dist_array = np.array(sorted(dist_dict.items(), key=lambda x:x[1]))
-                self.neighbors_array = np.append(self.neighbors_array, [dist_array[:n+1][:,0]], axis=0)
-        elif world_map==1:
+    def neighbors_vector_set(self,n=2,neighbors_id=1): #n個の近傍ウェイポイントセット
+        if neighbors_id == 0:
+            self.neighbors_array = []
+            for point in self.human_waypoints:
+                dist_array = np.linalg.norm(point-self.human_waypoints,axis=1)
+                sort_index = np.argsort(dist_array)
+                self.neighbors_array.append(sort_index[:n+1])
+        elif neighbors_id == 1:
             #１つめはその場のポイント番号
             self.neighbors_array = np.array([[0,1,9],[1,2,0],[2,3,1,7],[3,4,2,6],[4,5,3],[5,6,4],[6,7,5,3],[7,8,6,2],[8,9,7],[9,0,8]])
 
@@ -662,7 +625,7 @@ class SS2D_env(gym.Env):
                 for i in range(screen_height):
                     for j in range(screen_width):
     
-                        if self.linemap[i][j] == 1:
+                        if self.original_map[i][j] == 1:
                             wall = rendering.make_capsule(1, 1)
                             self.walltrans = rendering.Transform()
                             wall.add_attr(self.walltrans)
@@ -681,7 +644,7 @@ class SS2D_env(gym.Env):
                 waypoint.set_color(0.8, 0.8, 0.8)
                 self.waypointtrans.set_translation(point[0]/self.xyreso*scale_width, 
                         point[1]/self.xyreso*scale_height)
-                #self.viewer.add_geom(waypoint)
+                self.viewer.add_geom(waypoint)
 
             # robot pose
             robot = rendering.make_circle(self.human_radius/self.xyreso*scale_width)
