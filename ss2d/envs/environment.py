@@ -17,7 +17,7 @@ import rvo2
 from time import time
 
 wall_switch = False
-human_n = 2
+human_n = 0
 human_mode = 6 #0:stop 1:straight 2:random 3:bound 4:onedirection 5:RVO_straight 6:RVO_near_waypoint
 
 human_detect = True#True#True
@@ -35,11 +35,7 @@ class SS2D_env(gym.Env):
         # world param
         self.map_height= 0 #[pix]
         self.map_width = 0 #[pix]
-        #self.set_image_map(__file__[:-24]+'maps/paint_map/line_025.png')
-        #self.set_image_map(__file__[:-24]+'maps/nakano_11f_sim.png',1.0/4)
-        self.xyreso = 0.05*4 #[m/pix]
-        self.set_image_map(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
-        #self.xyreso = 0.05*4 #[m/pix]
+        self.max_dist = 1000
         self.dt = 0.1 #[s]
         self.world_time= 0.0 #[s]
         self.step_count = 0 #[]
@@ -63,7 +59,7 @@ class SS2D_env(gym.Env):
         self.target_position = [[-1,-1]] * human_n
 
         # lidar param
-        self.yawreso = math.radians(5) # ※360から割り切れる(1~360)[rad]
+        self.yawreso = math.radians(10) # ※360から割り切れる(1~360)[rad]
         self.min_range = 0.20 # [m]
         self.max_range = 10.0 # [m]
         self.view_angle = math.radians(90) #[rad]
@@ -88,65 +84,29 @@ class SS2D_env(gym.Env):
         self.neighbors_vector_set(self.near_n,neighbors_id=1)
 
         #rendering
-        self.viewer = None
         self.vis_lidar = True
+        self.viewer = None
 
     
     # 状態を初期化し、初期の観測値を返す
     def reset(self):
-        """
-        if self.reset_count%5 < 4:
-            self.set_image_map(__file__[:-24]+'maps/paint_map/line_025.png',self.xyreso)
-        if self.reset_count%5 == 4:
-            self.set_image_map(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
-        """
-        if self.viewer != None and self.change_map:
-            self.viewer.close()
-            self.viewer = None
-            self.change_map = False
+        self.xyreso = 0.05*4 #[m/pix]
+        self.set_image_map(__file__[:-24]+'maps/nakano_11f_sim.png', self.xyreso, 1.0/4)
+        #self.set_image_map(__file__[:-24]+'maps/paint_map/line_025.png')
+        #self.set_image_map(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
+        #self.xyreso = 0.05*4 #[m/pix]
         
-        if world_map==0:
-            if self.start_p_num == 19:
-                self.start_p_num = 19+13*7#random.randint(0, (len(self.waypoints)-1)/2)
-            else:
-                self.start_p_num = 19
-            #goal_p_num = 109+13*random.randint(-3, 3)+random.randint(-3, 3)
-            if self.start_p_num == 19:
-                goal_p_num = 19+13*7#123#random.randint((len(self.waypoints)-1)/2+1,len(self.waypoints)-1)
-            else:
-                goal_p_num = 19
-
-        elif world_map==1:
-            self.start_p_num = random.randint(0, len(self.waypoints)-1)
-            goal_p_num = random.randint(0, len(self.waypoints)-1)
-            while self.start_p_num==goal_p_num:
-                goal_p_num= random.randint(0, len(self.waypoints)-1)
+        self.start_p_num = random.randint(0, len(self.waypoints)-1)
+        goal_p_num = random.randint(0, len(self.waypoints)-1)
+        while self.start_p_num==goal_p_num:
+            goal_p_num= random.randint(0, len(self.waypoints)-1)
 
         self.start_p = self.waypoints[self.start_p_num]
         self.goal = self.waypoints[goal_p_num]
 
-
-        if mode == 1:
-            #self.start_p_num = random.randint(0, 1)*2+2
-            self.start_p_num = len(self.waypoints)-1
-            gp = 20
-            self.start_p = self.waypoints[self.start_p_num]
-            self.goal = self.waypoints[gp]
-        elif mode == 2:
-            #print("len:::::::::::::"+str(len(self.waypoints)))
-            self.start_p_num = self.reset_count%(len(self.waypoints)-1)
-            gp = len(self.waypoints)-1
-            self.start_p = self.waypoints[self.start_p_num]
-            self.goal = self.waypoints[gp]
-
-
         #print(self.waypoints)
-        self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], math.radians(random.uniform(179, -179)),0,0])
-        self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], math.radians(random.uniform(90, -90)),0,0])
-        if mode == 2:# or mode == 1:
-            self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], math.radians(180),0,0])
-
-        self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], math.radians(0),0,0])
+        #self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], math.radians(random.uniform(179, -179)),0,0])
+        self.state = np.array([self.waypoints[-1][0], self.waypoints[-1][1], math.radians(0),0,0])
 
         #initial human pose
         self.target_point_num = [0] * human_n
@@ -233,10 +193,10 @@ class SS2D_env(gym.Env):
 
         return self.observation, reward, self.done, {}
     
-    def set_image_map(self, map_file, xyreso, scale=1):
+    def set_image_map(self, map_filename, xyreso, scale=1):
         #self.map_height, width, self.map, self.original_map self.max_dist set
         #mapファイル読み込み 2pixel以上ないと貫通可能性有り
-        im = cv2.imread(map_file)
+        im = cv2.imread(map_filename)
         
         if scale != 1:
             orgHeight, orgWidth = im.shape[:2]
@@ -255,13 +215,17 @@ class SS2D_env(gym.Env):
         if img_thresh.shape[0] != self.map_height or img_thresh.shape[1] != self.map_width:
             self.map_height= img_thresh.shape[0] #[pix]
             self.map_width = img_thresh.shape[1] #[pix]
-            self.change_map = True
+            if self.viewer != None:
+                self.viewer.close()
+                self.viewer = None
+                print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCHANGE")
 
         self.map = np.where(img_thresh>100, 0, 1)
         self.original_map = np.where(img_thresh>100, 0, 1)
 
         self.xyreso = xyreso
         self.max_dist = (self.map_height+self.map_width)*xyreso
+
 
 
     # ゴールに到達したかを判定
@@ -373,6 +337,7 @@ class SS2D_env(gym.Env):
 
         if human_detect:
             human_dist_data = self.lidar[:, 5]*self.lidar[:, 3]
+            human_dist_data = np.where(human_dist_data==0,10,human_dist_data)
         else:
             human_detect_data = [self.max_range]*9
 
@@ -652,27 +617,13 @@ class SS2D_env(gym.Env):
             robot.add_attr(self.robottrans)
             robot.set_color(0.8, 0.8, 0.8)
             #self.viewer.add_geom(robot)
+
             # robot yawrate
             orientation = rendering.make_capsule(self.human_radius/self.xyreso*scale_width, 2.0)
             self.orientationtrans = rendering.Transform()
             orientation.add_attr(self.orientationtrans)
             orientation.set_color(1.0, 1.0, 1.0)
             self.viewer.add_geom(orientation)
-
-            """
-            # human pose
-            human = rendering.make_circle(self.human_radius/self.xyreso*scale_width)
-            self.humantrans = rendering.Transform()
-            human.add_attr(self.humantrans)
-            human.set_color(0.6, 0.8, 0.8)
-            self.viewer.add_onetime(human)
-            # human yawrate
-            human_orientation = rendering.make_capsule(self.human_radius/self.xyreso*scale_width, 2.0)
-            self.human_orientationtrans = rendering.Transform()
-            human_orientation.add_attr(self.human_orientationtrans)
-            human_orientation.set_color(0.6, 0.8, 0.8)
-            self.viewer.add_onetime(human_orientation)
-            """
 
             # start
             start = rendering.make_circle(self.robot_radius*2/self.xyreso*scale_width)
@@ -686,7 +637,7 @@ class SS2D_env(gym.Env):
             self.goaltrans = rendering.Transform()
             goal.add_attr(self.goaltrans)
             goal.set_color(1.0, 0.0, 0.0)
-            #self.viewer.add_geom(goal)
+            self.viewer.add_geom(goal)
 
 
 
@@ -702,7 +653,7 @@ class SS2D_env(gym.Env):
         self.robottrans.set_translation(robot_x, robot_y)
         self.orientationtrans.set_translation(robot_x, robot_y)
         self.orientationtrans.set_rotation(self.state[2])
-
+        # human
         for i in range(len(self.human_state)):
             human = rendering.make_circle(self.human_radius/self.xyreso*scale_width)
             self.humantrans = rendering.Transform()
@@ -723,6 +674,7 @@ class SS2D_env(gym.Env):
             self.viewer.add_onetime(human)
             if target_color:
                 self.viewer.add_onetime(target)
+        # lidar
         if self.vis_lidar:
             for lidar in self.lidar:
               # print(lidar)
@@ -749,4 +701,5 @@ class SS2D_env(gym.Env):
         robot.set_color(0.0, 0.0, 1.0)
         self.robottrans.set_translation(robot_x, robot_y)
         self.viewer.add_onetime(robot)
+
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
