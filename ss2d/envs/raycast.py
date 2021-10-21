@@ -90,26 +90,14 @@ class raycast(object):
                 straight_pixel_list = self.calc_straight_line(pose_yp,pose_xp,top_yp,top_xp)
                 stime = time()
                 for pix in straight_pixel_list:#0.00020~35s
-                    try:
-                        if self.grid_map[pix[0]][pix[1]] > 0:
-                            xy = np.array([pix[1]*self.xyreso,(self.grid_height-pix[0]-1)*self.xyreso])
-                            d = np.linalg.norm(xy-self.pose[:2])
-                            if self.grid_map[pix[0]][pix[1]] == 2:
-                                human_TF = 1
-                            else:
-                                human_TF = 0
-                            break
-                    except Exception as e:
-                        print("======================================")
-                        print(pose_xp)
-                        print(pose_yp)
-                        print(top_xp)
-                        print(top_yp)
-                        print(e)
-                        print(pix)
-                        print("!!!!!!")
-                        print(straight_pixel_list)
-                        print("======================================")
+                    if self.grid_map[pix[0]][pix[1]] > 0:
+                        xy = np.array([pix[1]*self.xyreso,(self.grid_height-pix[0]-1)*self.xyreso])
+                        d = np.linalg.norm(xy-self.pose[:2])
+                        if self.grid_map[pix[0]][pix[1]] == 2:
+                            human_TF = 1
+                        else:
+                            human_TF = 0
+                        break
                 else:
                     d = self.max_range
                     human_TF = 0
@@ -117,7 +105,7 @@ class raycast(object):
                 x = d*math.cos(global_angle)
                 y = d*math.sin(global_angle)
 
-                raycast_data.append([x, y, angle, d, i, human_TF])#human_TF(0,1)
+                raycast_data.append([angle, d, i, human_TF])#human_TF(0,1)
 
         raycast_data = np.array(raycast_data)
         #print(total)
