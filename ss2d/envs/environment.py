@@ -252,15 +252,10 @@ class SS2D_env(gym.Env):
         x = int(self.state[0]/self.xyreso) #[cell]
         y = int(self.state[1]/self.xyreso) #[cell]
         robot_radius_cell = int(self.robot_radius/self.xyreso) #[cell]
-        sx = x - robot_radius_cell
-        fx = x + robot_radius_cell
-        sy = (self.map_height-1)-(y+robot_radius_cell)
-        fy = (self.map_height-1)-(y-robot_radius_cell)
-
-        sx = self.max2(sx,0)
-        fx = self.min2(fx,self.map_width-1)
-        sy = self.max2(sy,0)
-        fy = self.min2(fy,self.map_height-1)
+        sx = self.max2(x-robot_radius_cell,0)
+        fx = self.min2(x+robot_radius_cell,self.map_width-1)
+        sy = self.max2((self.map_height-1)-(y+robot_radius_cell),0)
+        fy = self.min2((self.map_height-1)-(y-robot_radius_cell),self.map_height-1)
 
         obstacle = np.where(0<self.map[sy:fy,sx:fx])
         h_obstacle = np.where(2==self.map[sy:fy,sx:fx])
