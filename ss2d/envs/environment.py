@@ -81,7 +81,7 @@ class SS2D_env(gym.Env):
         self.observation_space = spaces.Box(low = self.observation_low, high = self.observation_high, dtype=np.float32)
 
         #way point
-        self.way_point_set(0) #default:0
+        self.way_point_set() #default:0
         self.near_n = 2 #人の行き先の選択肢の数(現在地(停止)＋near_n)
         self.neighbors_vector_set(self.near_n,neighbors_id=1)
 
@@ -197,7 +197,6 @@ class SS2D_env(gym.Env):
 
     def set_image_map(self, map_filename, xyreso, scale=1):
         #self.map_height, width, self.map, self.original_map self.max_dist set
-        #mapファイル読み込み 2pixel以上ないと貫通可能性有り
         im = cv2.imread(map_filename)
         
         if scale != 1:
@@ -304,10 +303,7 @@ class SS2D_env(gym.Env):
         self.human_state = []
         self.human_vel = []
         rand_num_his = []
-        self.inwall = []
         #マップ上の人の位置ピクセル格納用
-        self.xxx = []
-        self.yyy = []
         self.target_position = [[-1,-1]] * self.human_n
         
         #waypoint上にランダムにnum人の人をスポーン
@@ -317,11 +313,8 @@ class SS2D_env(gym.Env):
                 rand_num_his.append(rand_num)
                 self.hstart_p = (self.waypoints[rand_num])
                 self.human_state.append(self.sim.addAgent((self.hstart_p[0], self.hstart_p[1])))
-                self.xxx.append(int(self.hstart_p[0]/self.xyreso))
-                self.yyy.append((self.map_height-1)-int(self.hstart_p[1]/self.xyreso))
                 human_vel = random.uniform(self.human_vel_min, self.human_vel_max)
                 self.human_vel.append(human_vel)
-                self.inwall.append(False)
 
     def way_point_set(self,waypoints_id=0):
         if waypoints_id == 0:
@@ -340,11 +333,11 @@ class SS2D_env(gym.Env):
             #１つめはその場のポイント番号
             self.neighbors_array = np.array([[0,1,9],[1,2,0],[2,3,1,7],[3,4,2,6],[4,5,3],[5,6,4],[6,7,5,3],[7,8,6,2],[8,9,7],[9,0,8]])
 
-    def rvomap_set(self):
-        if world_map == 0:
-            map_line = [(1.8, 48.1), (69.7, 48.1), (69.5, 1.7), (1.9, 1.7)]
-            o1 = self.sim.addObstacle(map_line)
-        elif world_map == 1:
+    def rvomap_set(self,rvo_map_id=0):
+        #if world_map == 0:
+        #    map_line = [(1.8, 48.1), (69.7, 48.1), (69.5, 1.7), (1.9, 1.7)]
+        #    o1 = self.sim.addObstacle(map_line)
+        if rvo_map_id == 1:
             map_line = [(7.6, 22.9), (10.3, 22.7), (10.2, 19.9), (41.7, 19.5), (41.7, 16.9), (53.4, 16.9), (53.4, 19.5), (58.9, 19.5), (59.0, 16.9), (63.8, 17.1), (63.9, 10.0), (59.2, 10.0), (59.2, 7.5), (53.9, 7.4), (53.8, 9.8), (53.0, 9.8), (53.2, 1.5), (47.1, 1.2), (46.9, 9.6), (51.6, 9.7), (41.6, 9.7), (41.5, 7.2), (7.5, 7.1), (7.5, 12.0), (0.7, 12.0), (0.8, 15.2), (7.5, 15.1), (7.5, 18.2), (3.6, 18.2), (3.5, 20.1), (4.4, 20.1), (4.5, 19.2), (7.6, 19.2)]
             map_line2 = [(10.2, 16.6), (10.2, 17.9), (12.8, 17.8), (12.8, 17.2), (15.8, 17.2), (15.8, 17.7), (16.5, 17.8), (16.9, 17.2), (20.0, 17.2), (20.0, 17.6), (25.2, 17.7), (25.4, 17.0), (28.8, 16.9), (28.6, 17.4), (30.0, 17.4), (30.1, 16.9), (35.2, 16.9), (35.2, 17.5), (36.5, 17.2), (36.5, 16.9), (39.5, 16.8), (39.7, 9.7), (36.3, 9.7), (36.3, 9.2), (35.1, 9.2), (35.1, 9.7), (30.2, 9.6), (30.1, 9.1), (28.5, 9.2), (28.4, 9.8), (25.4, 9.7), (25.4, 9.1), (20.0, 9.1), (20.0, 9.6), (16.7, 9.6), (16.7, 9.2), (15.8, 9.2), (15.7, 9.6), (12.5, 9.8), (12.5, 9.2), (10.2, 9.1), (10.1, 11.1), (11.6, 11.1), (11.7, 16.5)]
             map_line2.reverse()
@@ -378,99 +371,20 @@ class SS2D_env(gym.Env):
     def human_step(self):
         self.map = self.original_map.copy()
         for i in range(len(self.human_state)):
-            randaction = 0.8
-            randdirect = 0
-            if human_mode < 5:
-                if human_mode == 0:
-                    randaction = 0
-                    randdirect = 0
-                elif human_mode == 1:
-                    randaction = 0.5
-                    randdirect = 0
-                elif human_mode == 2:
-                    randaction = random.uniform(1.0, 0.0)
-                    randdirect = random.uniform(math.pi, -math.pi)
-                elif human_mode == 3:
-                    if self.inwall[i]:
-                        #randaction *= -1
-                        randdirect = math.pi/self.dt
-                elif human_mode == 4:
-                    if world_map == 0:
-                        if self.inwall[i] and self.human_state[i][1] > 30:
-                            self.human_state[i][1] = 2.5
-                        if self.inwall[i] and self.human_state[i][1] < 2.5:
-                            self.human_state[i][1] = 45
-                    elif world_map == 1:
-                        if self.inwall[i] and self.human_state[i][1] > 20:
-                            self.human_state[i][1] = 2.5
-                        if self.inwall[i] and self.human_state[i][1] < 1.0:
-                            self.human_state[i][1] = 20
-                        
-                self.human_state[i][2] += randdirect * self.dt
-                self.human_state[i][0] += randaction * math.cos(self.human_state[i][2]) * self.dt
-                self.human_state[i][1] += randaction * math.sin(self.human_state[i][2]) * self.dt
-                if self.human_state[i][2]<0.0:
-                    self.human_state[i][2] += math.pi * 2.0
-                elif math.pi * 2.0 < self.human_state[i][2]:
-                    self.human_state[i][2] -= math.pi * 2.0
-                self.xxx[i] = int(self.human_state[i][0]/self.xyreso)
-                self.yyy[i] = (self.map_height-1)-int(self.human_state[i][1]/self.xyreso)
+            velvec = self.set_rvo_velocity2(i,self.human_vel[i])
+            self.sim.setAgentPrefVelocity(self.human_state[i], velvec)
 
+            human_pix_i = (self.map_height-1)-int(self.sim.getAgentPosition(self.human_state[i])[1]/self.xyreso)
+            human_pix_j = int(self.sim.getAgentPosition(self.human_state[i])[0]/self.xyreso)
+            
+            human_r_pix = int(self.human_radius/self.xyreso)
+            human_pix_si = self.max2(human_pix_i-human_r_pix,0)
+            human_pix_sj = self.max2(human_pix_j-human_r_pix,0)
+            human_pix_fi = self.min2(human_pix_i+human_r_pix,self.map_height-1)+1
+            human_pix_fj = self.min2(human_pix_j+human_r_pix,self.map_width-1)+1
 
-            else:
-                if human_mode == 5:
-                    if world_map == 0 or True:
-                        if self.inwall[i] and self.sim.getAgentPosition(self.human_state[i])[1] > 30:
-                            self.sim.setAgentPosition(self.human_state[i], (self.sim.getAgentPosition(self.human_state[i])[0],2.5))
-                        if self.inwall[i] and self.sim.getAgentPosition(self.human_state[i])[1] < 2.5:
-                            self.sim.setAgentPosition(self.human_state[i], (self.sim.getAgentPosition(self.human_state[i])[0],45))
-                        if self.inwall[i] and self.sim.getAgentPosition(self.human_state[i])[0] > 65:
-                            self.sim.setAgentPosition(self.human_state[i], (2.5, self.sim.getAgentPosition(self.human_state[i])[1]))
-                        if self.inwall[i] and self.sim.getAgentPosition(self.human_state[i])[0] < 2.5:
-                            self.sim.setAgentPosition(self.human_state[i], (65 ,self.sim.getAgentPosition(self.human_state[i])[1]))
-                    if i%4 == 0:
-                        xvel = 0
-                        yvel = self.human_vel[i]
-                    elif i%4 == 1:
-                        xvel = self.human_vel[i]
-                        yvel = 0 
-                    elif i%4 == 2:
-                        xvel = -self.human_vel[i]
-                        yvel = 0 
-                    elif i%4 == 3:
-                        xvel = 0 
-                        yvel = -self.human_vel[i]
-                    velvec = (xvel, yvel)
-                
-                if human_mode == 6:
-                    if world_map == 0:
-                        velvec = self.set_rvo_velocity(i,self.human_vel[i])
-                    elif world_map == 1:
-                        velvec = self.set_rvo_velocity2(i,self.human_vel[i])
+            self.map[human_pix_si:human_pix_fi,human_pix_sj:human_pix_fj] = 2
 
-
-                #print(velvec)
-                self.sim.setAgentPrefVelocity(self.human_state[i], velvec)
-                #print(self.sim.getAgentNumORCALines(self.human_state[i]))
-                #print(self.sim.getAgentNumObstacleNeighbors(self.human_state[i]))
-                #print(self.sim.getNumAgents())
-
-                self.xxx[i] = int(self.sim.getAgentPosition(self.human_state[i])[0]/self.xyreso)
-                self.yyy[i] = (self.map_height-1)-int(self.sim.getAgentPosition(self.human_state[i])[1]/self.xyreso)
-
-            if self.inwall[i]:
-                self.inwall[i] = False
-            else:
-                try:
-                    self.inwall[i] = self.original_map[self.yyy[i],self.xxx[i]] == 1
-                except:
-                    self.inwall[i] = True
-            for h in range(3):
-                for w in range(3):
-                    try:
-                        self.map[self.yyy[i]-1+h,self.xxx[i]-1+w] = 2
-                    except:
-                        pass
         self.sim.doStep()
 
     def set_rvo_velocity2(self, i, human_vel):#iは人ナンバー
@@ -622,3 +536,7 @@ class SS2D_env(gym.Env):
             return a
         else:
             return b
+    def my_clip(self,a,min_,max_):
+        b = max2(a,min_)
+        b = min2(b,max_)
+        return b
