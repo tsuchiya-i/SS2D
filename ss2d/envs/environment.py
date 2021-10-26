@@ -17,7 +17,6 @@ import rvo2
 from time import time
 
 wall_switch = False
-human_n = 0
 human_mode = 6 #0:stop 1:straight 2:random 3:bound 4:onedirection 5:RVO_straight 6:RVO_near_waypoint
 
 human_detect = True#True#True
@@ -25,13 +24,12 @@ world_map = 1 #0:free 1:nakano11F
 
 mode = 1 #0:normal, 1:simple, 2:test
 
-observe_mode = 1#0:old(11) 1:new(20)
 
-output_mode = True
 target_color = True
 
 class SS2D_env(gym.Env):
     def __init__(self):
+        self.show = True
         # world param
         self.map_height= 0 #[pix]
         self.map_width = 0 #[pix]
@@ -53,10 +51,11 @@ class SS2D_env(gym.Env):
         self.max_angular_velocity = math.radians(40) # [rad/s]
 
         # human param
+        self.human_n = 5
+        self.human_vel_min = 0.8
+        self.human_vel_max = 0.8
         self.human_radius = 0.35 #[m]
-        self.nearest_j = [0] * human_n #
-        self.target_point_num = [0] * human_n
-        self.target_position = [[-1,-1]] * human_n
+        self.nearest_j = [0] * self.human_n #
 
         # lidar param
         self.yawreso = math.radians(10) # ※360から割り切れる(1~360)[rad]
@@ -65,22 +64,25 @@ class SS2D_env(gym.Env):
         self.view_angle = math.radians(90) #[rad]
         self.lidarnum = int(int(self.view_angle/(2*self.yawreso))*2+1)
 
+        #observe param
+        self.observe_mode = 1#0:(lidar+goal) 1:(lidar+human+goal)
+
         # set action_space (velocity[m/s], omega[rad/s])
         self.action_low  = np.array([self.min_velocity, self.min_angular_velocity]) 
         self.action_high = np.array([self.max_velocity, self.max_angular_velocity]) 
         self.action_space = spaces.Box(self.action_low, self.action_high, dtype=np.float32)
         # set observation_space
-        if observe_mode == 0:
+        if self.observe_mode == 0:
             self.observation_low = np.concatenate([[0.0]*self.lidarnum ,[0.0, -math.pi,]],0)
             self.observation_high = np.concatenate([[self.max_range]*self.lidarnum ,[self.max_dist,-math.pi]],0)
-        elif observe_mode == 1:
+        elif self.observe_mode == 1:
             self.observation_low = np.concatenate([[0.0]*(self.lidarnum*2) ,[0.0, -math.pi,]],0)
             self.observation_high = np.concatenate([[self.max_range]*(self.lidarnum*2) ,[self.max_dist,-math.pi]],0)
         self.observation_space = spaces.Box(low = self.observation_low, high = self.observation_high, dtype=np.float32)
 
         #way point
         self.way_point_set(0) #default:0
-        self.near_n = 4 #人の行き先の選択肢の数(現在地(停止)＋near_n)
+        self.near_n = 2 #人の行き先の選択肢の数(現在地(停止)＋near_n)
         self.neighbors_vector_set(self.near_n,neighbors_id=1)
 
         #rendering
@@ -90,34 +92,38 @@ class SS2D_env(gym.Env):
     
     # 状態を初期化し、初期の観測値を返す
     def reset(self):
+        """
+        if self.reset_count == 0:
+            self.xyreso = 0.05*4 #[m/pix]
+            self.set_image_map(__file__[:-24]+'maps/nakano_11f_sim.png', self.xyreso, 1.0/4)
+        if self.reset_count > 0:
+            self.xyreso = 0.05*4 #[m/pix]
+            self.set_image_map(__file__[:-24]+'maps/paint_map/line_025.png', self.xyreso, 1)
+        """
         self.xyreso = 0.05*4 #[m/pix]
-        self.set_image_map(__file__[:-24]+'maps/nakano_11f_sim.png', self.xyreso, 1.0/4)
-        #self.set_image_map(__file__[:-24]+'maps/paint_map/line_025.png')
-        #self.set_image_map(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
-        #self.xyreso = 0.05*4 #[m/pix]
+        self.set_image_map(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
         
         self.start_p_num = random.randint(0, len(self.waypoints)-1)
+        self.start_p_num = len(self.waypoints)-1
         goal_p_num = random.randint(0, len(self.waypoints)-1)
         while self.start_p_num==goal_p_num:
             goal_p_num= random.randint(0, len(self.waypoints)-1)
-
         self.start_p = self.waypoints[self.start_p_num]
         self.goal = self.waypoints[goal_p_num]
 
-        #print(self.waypoints)
-        #self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], math.radians(random.uniform(179, -179)),0,0])
-        self.state = np.array([self.waypoints[-1][0], self.waypoints[-1][1], math.radians(0),0,0])
+        #self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
+                #math.radians(random.uniform(179, -179)),0,0])
+        self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], math.radians(0),0,0])
 
         #initial human pose
-        self.target_point_num = [0] * human_n
-        self.init_human(human_n)
+        self.init_human()
         self.rvo_robot = self.sim.addAgent((self.state[0],self.state[1]))
         self.sim.setAgentVelocity(self.rvo_robot, (0.0,0.0))
-        self.sim.doStep()
         #rvo map set
         self.rvomap_set()
         #reset goal_d and goal_a 
-        self.reset_goal_info()
+        self.distgoal = self.calc_goal_info()
+        self.old_distgoal = self.distgoal
         #reset observe
         self.observation = self.observe()
         self.done = False
@@ -126,73 +132,69 @@ class SS2D_env(gym.Env):
         self.reset_count += 1
         return self.observation
 
-    def reset_goal_info(self):
-        d = np.linalg.norm(self.goal-self.state[:2])
-        t_theta = np.angle(complex(self.goal[0]-self.state[0], self.goal[1]-self.state[1]))
-        if t_theta < 0:
-            t_theta = math.pi + (math.pi+t_theta)
-        theta = t_theta
-        if self.state[2] < math.pi:
-            if t_theta > self.state[2]+math.pi:
-                theta=t_theta-2*math.pi
-        if self.state[2] > math.pi:
-            if 0 < t_theta < self.state[2]-math.pi:
-                theta=t_theta+2*math.pi
-        anglegoal = theta-self.state[2]
-        self.distgoal = np.array([d, anglegoal])
-        self.start_distgoal = self.distgoal
-        self.old_distgoal = self.distgoal
-
     # actionを実行し、結果を返す
     def step(self, action):
         self.step_count += 1
         self.world_time += self.dt
         
         self.human_step()
-
-        ######def robot_step###########
-        for i in range(len(action)):
-            if action[i] < self.action_low[i]:
-                action[i] = self.action_low[i]
-            if action[i] > self.action_high[i]:
-                action[i] = self.action_high[i]
-
-        self.state[0] += action[0] * math.cos(self.state[2]) * self.dt
-        self.state[1] += action[0] * math.sin(self.state[2]) * self.dt
-        self.state[2] += action[1] * self.dt
-        if self.state[2]<0.0:
-            self.state[2] += math.pi * 2.0
-        elif math.pi * 2.0 < self.state[2]:
-            self.state[2] -= math.pi * 2.0
-        self.state[3] = action[0]
-        self.state[4] = action[1]
-        #################################
-
+        self.robot_step(action)
         self.sim.setAgentPosition(self.rvo_robot,(self.state[0],self.state[1]))
 
-        d = np.linalg.norm(self.goal-self.state[:2])
-        t_theta = np.angle(complex(self.goal[0]-self.state[0], self.goal[1]-self.state[1]))
-        if t_theta < 0:
-            t_theta = math.pi + (math.pi+t_theta)
-        theta = t_theta
-        if self.state[2] < math.pi:
-            if t_theta > self.state[2]+math.pi:
-                theta=t_theta-2*math.pi
-        if self.state[2] > math.pi:
-            if 0 < t_theta < self.state[2]-math.pi:
-                theta=t_theta+2*math.pi
-        anglegoal = theta-self.state[2]
-        #print(anglegoal)
-        self.distgoal = np.array([d, anglegoal])
-        #stime = time()
         self.observation = self.observe()
-        #print(time()-stime)
         reward = self.reward(action)
-        self.done = self.is_done(True)
+        self.done = self.is_done(self.show)
         self.old_distgoal = self.distgoal
 
         return self.observation, reward, self.done, {}
     
+    # 観測結果を表示
+    def observe(self):
+        # Raycasting
+        stime = time()
+        Raycast = raycast(self.state[0:3], self.map, self.map_height,self.map_width, 
+                                self.xyreso, self.yawreso,
+                                self.min_range, self.max_range,self.view_angle)
+        self.lidar = Raycast.raycasting()
+
+        human_dist_data = self.lidar[:, 3]*self.lidar[:, 1]
+        human_dist_data = np.where(human_dist_data==0,10,human_dist_data)
+        #human_detect_data = [self.max_range]*9 #human no detect
+
+        if self.observe_mode == 0:
+            observation = self.lidar[:, 1]
+        elif self.observe_mode == 1:
+            observation = np.concatenate([self.lidar[:, 1], human_dist_data], 0)
+
+        self.distgoal = self.calc_goal_info()
+        distgoal_norm = np.array([self.distgoal[0],self.distgoal[1]])
+        observation = np.concatenate([observation, distgoal_norm], 0)
+
+        return observation#lidar,human,dist,angle_dist(clock wise)
+
+    # 報酬値を返す
+    def reward(self, action):
+        if self.is_goal():
+            rwd = 25 
+        elif self.is_collision(False):
+            if self.collision_factor == 1:
+                rwd = -25
+            elif self.collision_factor == 2:
+                rwd = -40
+        elif not self.is_movable():
+            rwd = -25
+        else:
+            if self.lidar[np.argmin(self.lidar[:, 1]), 1] < self.robot_radius*2:
+                wall_rwd = -1.0
+            else:
+                wall_rwd = 0.0
+            vel_rwd = (action[0]-self.max_velocity)/self.max_velocity
+            dist_rwd = (self.old_distgoal[0]-self.distgoal[0])/(self.max_velocity*self.dt)
+            angle_rwd = (abs(self.old_distgoal[1])-abs(self.distgoal[1]))/(self.max_angular_velocity*self.dt)
+            time_reward = -self.world_time/(1500*self.dt) #max 1500steps
+            rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + wall_rwd + time_reward#うまく行った
+        return rwd
+
     def set_image_map(self, map_filename, xyreso, scale=1):
         #self.map_height, width, self.map, self.original_map self.max_dist set
         #mapファイル読み込み 2pixel以上ないと貫通可能性有り
@@ -218,7 +220,6 @@ class SS2D_env(gym.Env):
             if self.viewer != None:
                 self.viewer.close()
                 self.viewer = None
-                print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCHANGE")
 
         self.map = np.where(img_thresh>100, 0, 1)
         self.original_map = np.where(img_thresh>100, 0, 1)
@@ -226,14 +227,11 @@ class SS2D_env(gym.Env):
         self.xyreso = xyreso
         self.max_dist = (self.map_height+self.map_width)*xyreso
 
-
-
     # ゴールに到達したかを判定
     def is_goal(self, show=False):
         if math.sqrt( (self.state[0]-self.goal[0])**2 + (self.state[1]-self.goal[1])**2 ) <= self.robot_radius*3:
             if show:
-                if output_mode:
-                    print("Goal")
+                print("Goal")
             return True
         else:
             return False
@@ -246,142 +244,88 @@ class SS2D_env(gym.Env):
             return True
         else:
             if show:
-                if output_mode:
-                    print("(%f, %f) is not movable area" % (x*self.xyreso, y*self.xyreso))
+                print("(%f, %f) is not movable area" % (x*self.xyreso, y*self.xyreso))
             return False
 
     # 高速衝突判定
     def is_collision(self, show=False):
         x = int(self.state[0]/self.xyreso) #[cell]
         y = int(self.state[1]/self.xyreso) #[cell]
-        #print("robot:"+str(x))
         robot_radius_cell = int(self.robot_radius/self.xyreso) #[cell]
         sx = x - robot_radius_cell
         fx = x + robot_radius_cell
         sy = (self.map_height-1)-(y+robot_radius_cell)
         fy = (self.map_height-1)-(y-robot_radius_cell)
-        if sx<0:
-            sx = 0
-        if fx>self.map_width-1:
-            fx = self.map_width-1
-        if sy<0:
-            sy = 0
-        if fy>self.map_height-1:
-            fy = self.map_height-1
+
+        sx = self.max2(sx,0)
+        fx = self.min2(fx,self.map_width-1)
+        sy = self.max2(sy,0)
+        fy = self.min2(fy,self.map_height-1)
 
         obstacle = np.where(0<self.map[sy:fy,sx:fx])
-        h_obstacle = np.where(1<self.map[sy:fy,sx:fx])
-        if len(obstacle[0]) > 0:
-            if len(h_obstacle[0]) > 0:
+        h_obstacle = np.where(2==self.map[sy:fy,sx:fx])
+        if len(obstacle[0]):
+            if len(h_obstacle[0]):
                 self.collision_factor = 2
-                if output_mode:
+                if show:
                     print("(%f, %f) of human collision" % (x*self.xyreso, y*self.xyreso))
             else:
                 self.collision_factor = 1
-                if output_mode:
+                if show:
                     print("(%f, %f) of collision" % (x*self.xyreso, y*self.xyreso))
             return True
         self.collision_factor = 0
         return False
 
-    # 報酬値を返す
-    def reward(self,  action):
-        if self.is_goal():
-            #return 25
-            rwd = 25 
-        elif self.is_collision():
-            #return -25
-            if self.collision_factor == 1:
-                rwd = -25
-            elif self.collision_factor == 2:
-                rwd = -40
-        elif not self.is_movable():
-            #return -25
-            rwd = -25
-        else:
-            if self.lidar[np.argmin(self.lidar[:, 3]), 3] < self.robot_radius*2:
-                wall_rwd = -1.0
-            else:
-                wall_rwd = 0.0
-            vel_rwd = (action[0]-self.max_velocity)/self.max_velocity
-            dist_rwd = (self.old_distgoal[0]-self.distgoal[0])/(self.max_velocity*self.dt)
-            angle_rwd = (abs(self.old_distgoal[1])-abs(self.distgoal[1]))/(self.max_angular_velocity*self.dt)
-            time_reward = -self.world_time/(1500*self.dt) #max 1500steps
-            #rwd = 
-            #rwd = (vel_rwd*10 + dist_rwd + 2*angle_rwd)/4 + wall_rwd
-            #rwd = (vel_rwd + dist_rwd + angle_rwd + wall_rwd + time_reward)/5
-            rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + wall_rwd + time_reward#うまく行った
-            #rwd = (2*vel_rwd + dist_rwd + angle_rwd)/3
-            #print("max:"+str(self.max_velocity))
-            #print("vel_rwd  :"+str(vel_rwd))
-            #print("dist_rwd :"+str(dist_rwd))
-            #print("angle_rwd:"+str(angle_rwd))
-            #print("===rwd===:"+str(rwd))
-        return rwd
-
-
     # 終端状態か確認
     def is_done(self, show=False):
-        return (not self.is_movable(show)) or self.is_collision(show) or self.is_goal(show)
-
-    # 観測結果を表示
-    def observe(self):
-        # Raycasting
-        stime = time()
-        Raycast = raycast(self.state[0:3], self.map, self.map_height,self.map_width, 
-                                self.xyreso, self.yawreso,
-                                self.min_range, self.max_range,self.view_angle)
-        self.lidar = Raycast.raycasting()
-        #print(time()-stime)
-        #print(self.lidar)
-
-        if human_detect:
-            human_dist_data = self.lidar[:, 5]*self.lidar[:, 3]
-            human_dist_data = np.where(human_dist_data==0,10,human_dist_data)
+        if self.is_collision(show):
+            return True
+        elif (not self.is_movable(show)):# or self.is_collision(show) or self.is_goal(show):
+            return True
+        elif self.is_goal(show):
+            return True
         else:
-            human_detect_data = [self.max_range]*9
+            return False
 
-        #print(distgoal_norm)
-        if observe_mode == 0:
-            observation = self.lidar[:, 3]
-        elif observe_mode == 1:
-            observation = np.concatenate([self.lidar[:, 3], human_dist_data], 0)
 
-        #distgoal_norm = np.array([self.distgoal[0],(self.distgoal[1]+math.pi)/(math.pi*2)])
-        distgoal_norm = np.array([self.distgoal[0],self.distgoal[1]])
-        observation = np.concatenate([observation, distgoal_norm], 0)
+    def calc_goal_info(self):
+        d = np.linalg.norm(self.goal-self.state[:2])
+        t_theta = np.angle(complex(self.goal[0]-self.state[0], self.goal[1]-self.state[1]))
+        if t_theta < 0:
+            t_theta = math.pi + (math.pi+t_theta)
+        theta = t_theta
+        if self.state[2] < math.pi:
+            if t_theta > self.state[2]+math.pi:
+                theta=t_theta-2*math.pi
+        if self.state[2] > math.pi:
+            if 0 < t_theta < self.state[2]-math.pi:
+                theta=t_theta+2*math.pi
+        anglegoal = theta-self.state[2]
+        return np.array([d, anglegoal])
 
-        #print(observation)
-        return observation#9本(0~),9本(0~),距離(0~),角度(0~1)(時計回りで増加)
-
-    def init_human(self,num):
+    def init_human(self):
+        self.sim = rvo2.PyRVOSimulator(1/10., 1.5, 5, 1.5, 2, self.human_radius, 2)
         self.human_state = []
-        self.human_vel =[]
+        self.human_vel = []
         rand_num_his = []
+        self.inwall = []
         #マップ上の人の位置ピクセル格納用
         self.xxx = []
         self.yyy = []
-        self.inwall = []
-        self.sim = rvo2.PyRVOSimulator(1/10., 1.5, 5, 1.5, 2, self.human_radius, 2)
-        self.target_position = [[-1,-1]] * human_n
+        self.target_position = [[-1,-1]] * self.human_n
         
         #waypoint上にランダムにnum人の人をスポーン
-        while len(rand_num_his) < num:
+        while len(rand_num_his) < self.human_n:
             rand_num = random.randint(0, len(self.waypoints)-1)
             if (not rand_num in rand_num_his) and (rand_num != self.start_p_num):
                 rand_num_his.append(rand_num)
                 self.hstart_p = (self.waypoints[rand_num])
-                #self.human_state.append(np.array([self.hstart_p[0], self.hstart_p[1],math.radians(random.uniform(179, -179))]))
-                if human_mode < 5:
-                    if (rand_num//13)%2 == 1:
-                        self.human_state.append(np.array([self.hstart_p[0], self.hstart_p[1],math.radians(90)]))
-                    else:
-                        self.human_state.append(np.array([self.hstart_p[0], self.hstart_p[1],-math.radians(90)]))
-                else:
-                    self.human_state.append(self.sim.addAgent((self.hstart_p[0], self.hstart_p[1])))
+                self.human_state.append(self.sim.addAgent((self.hstart_p[0], self.hstart_p[1])))
                 self.xxx.append(int(self.hstart_p[0]/self.xyreso))
                 self.yyy.append((self.map_height-1)-int(self.hstart_p[1]/self.xyreso))
-                self.human_vel.append(0.8)
+                human_vel = random.uniform(self.human_vel_min, self.human_vel_max)
+                self.human_vel.append(human_vel)
                 self.inwall.append(False)
 
     def way_point_set(self,waypoints_id=0):
@@ -390,7 +334,7 @@ class SS2D_env(gym.Env):
             self.human_waypoints = np.array([[8.8, 19.0], [40.4, 18.2], [40.7, 16.0], [47.7, 16.1], [63.2, 16.0], [63.2, 10.8], [47.6, 10.8], [40.9, 10.6], [40.5, 8.], [8.8, 8.1]])
 
 
-    def neighbors_vector_set(self,n=2,neighbors_id=1): #n個の近傍ウェイポイントセット
+    def neighbors_vector_set(self,n=2,neighbors_id=0): #n個の近傍ウェイポイントセット
         if neighbors_id == 0:
             self.neighbors_array = []
             for point in self.human_waypoints:
@@ -419,11 +363,25 @@ class SS2D_env(gym.Env):
             o4 = self.sim.addObstacle(map_line4)
         self.sim.processObstacles()
 
+    def robot_step(self, action):
+        for i in range(len(action)):
+            if action[i] < self.action_low[i]:
+                action[i] = self.action_low[i]
+            if action[i] > self.action_high[i]:
+                action[i] = self.action_high[i]
+
+        self.state[0] += action[0] * math.cos(self.state[2]) * self.dt
+        self.state[1] += action[0] * math.sin(self.state[2]) * self.dt
+        self.state[2] += action[1] * self.dt
+        if self.state[2]<0.0:
+            self.state[2] += math.pi * 2.0
+        elif math.pi * 2.0 < self.state[2]:
+            self.state[2] -= math.pi * 2.0
+        self.state[3] = action[0]
+        self.state[4] = action[1]
 
     def human_step(self):
         self.map = self.original_map.copy()
-        #if human_n > 0:
-        #    self.sim.addAgent((self.hstart_p[0], self.hstart_p[1]))
         for i in range(len(self.human_state)):
             randaction = 0.8
             randdirect = 0
@@ -505,14 +463,6 @@ class SS2D_env(gym.Env):
                 self.xxx[i] = int(self.sim.getAgentPosition(self.human_state[i])[0]/self.xyreso)
                 self.yyy[i] = (self.map_height-1)-int(self.sim.getAgentPosition(self.human_state[i])[1]/self.xyreso)
 
-            """
-            if self.xxx[i] < 1 or self.yyy[i] < 1:
-                self.xxx[i] = 1
-                self.yyy[i] = 1
-            elif self.xxx[i]>self.map_width-2 or self.yyy[i]>self.map_height-2:
-                self.xxx[i] = self.map_width-2
-                self.yyy[i] = self.map_width-2
-            """
             if self.inwall[i]:
                 self.inwall[i] = False
             else:
@@ -528,37 +478,16 @@ class SS2D_env(gym.Env):
                         pass
         self.sim.doStep()
 
-    def set_rvo_velocity(self, i, human_vel):#iは人ナンバー
-        now_position = np.array(self.sim.getAgentPosition(self.human_state[i]))
-        #最近傍ウェイポイント
-        for j in range(len(self.waypoints)):#ウェイポイント全探索
-            point_dist = np.linalg.norm(self.waypoints[j]-now_position)
-            if j==0 or nearest_dist > point_dist:
-                nearest_dist = point_dist
-                min_j = j
-                #print(str(j)+"min_cahnge")
-        if self.nearest_j[i] != min_j:
-            self.nearest_j[i] = min_j
-            self.target_point_num[i] = random.randint(1, self.near_n)
-        target_point = self.neighbors_array[self.nearest_j[i]][self.target_point_num[i]]
-        target_point = self.waypoints[int(target_point)]
-        target_vector = target_point - now_position
-        target_vel = target_vector/np.linalg.norm(target_vector) * human_vel
-
-        return (target_vel[0], target_vel[1])
-
     def set_rvo_velocity2(self, i, human_vel):#iは人ナンバー
         now_position = np.array(self.sim.getAgentPosition(self.human_state[i]))
         #最近傍ウェイポイント
         if self.target_position[i][0] == -1:
-            #self.target_position[i] = now_position
             for j in range(len(self.human_waypoints)):#ウェイポイント全探索
                 point_dist = np.linalg.norm(self.human_waypoints[j]-now_position)
                 if j==0 or nearest_dist > point_dist:
                     nearest_dist = point_dist
                     min_j = j
             self.target_position[i] = self.human_waypoints[min_j]
-            #print(self.human_waypoints[min_j])
         if np.linalg.norm(self.target_position[i] - now_position) < self.human_radius:
             for j in range(len(self.human_waypoints)):#ウェイポイント全探索
                 point_dist = np.linalg.norm(self.human_waypoints[j]-now_position)
@@ -566,6 +495,7 @@ class SS2D_env(gym.Env):
                     nearest_dist = point_dist
                     min_j = j
             self.nearest_j[i] = min_j
+            self.target_point_num = [0] * self.human_n
             self.target_point_num[i] = random.randint(0, len(self.neighbors_array[min_j])-1)
             target_point = self.neighbors_array[self.nearest_j[i]][self.target_point_num[i]]
             target_point = self.human_waypoints[int(target_point)]
@@ -574,6 +504,7 @@ class SS2D_env(gym.Env):
         target_vel = target_vector/np.linalg.norm(target_vector) * human_vel
 
         return (target_vel[0], target_vel[1])
+
 
     # レンダリング
     def render(self, mode='human', close=False):
@@ -612,25 +543,15 @@ class SS2D_env(gym.Env):
                 self.viewer.add_geom(waypoint)
 
             # robot pose
-            robot = rendering.make_circle(self.human_radius/self.xyreso*scale_width)
             self.robottrans = rendering.Transform()
-            robot.add_attr(self.robottrans)
-            robot.set_color(0.8, 0.8, 0.8)
-            #self.viewer.add_geom(robot)
-
-            # robot yawrate
-            orientation = rendering.make_capsule(self.human_radius/self.xyreso*scale_width, 2.0)
+            orientation = rendering.make_capsule(self.robot_radius/self.xyreso*scale_width, 2.0)
             self.orientationtrans = rendering.Transform()
-            orientation.add_attr(self.orientationtrans)
-            orientation.set_color(1.0, 1.0, 1.0)
-            self.viewer.add_geom(orientation)
 
             # start
             start = rendering.make_circle(self.robot_radius*2/self.xyreso*scale_width)
             self.starttrans = rendering.Transform()
             start.add_attr(self.starttrans)
             start.set_color(0.7, 0.7, 1.0)
-            #start.set_color(1.0, 0.0, 0.0)
             #self.viewer.add_geom(start)
             # goal
             goal = rendering.make_circle(self.robot_radius*2/self.xyreso*scale_width)
@@ -639,13 +560,8 @@ class SS2D_env(gym.Env):
             goal.set_color(1.0, 0.0, 0.0)
             self.viewer.add_geom(goal)
 
-
-
-
-        self.starttrans.set_translation(self.start_p[0]/self.xyreso*scale_width, 
-                self.start_p[1]/self.xyreso*scale_height)
-        self.goaltrans.set_translation(self.goal[0]/self.xyreso*scale_width, 
-                                       self.goal[1]/self.xyreso*scale_height)
+        self.starttrans.set_translation(self.start_p[0]/self.xyreso*scale_width, self.start_p[1]/self.xyreso*scale_height)
+        self.goaltrans.set_translation(self.goal[0]/self.xyreso*scale_width, self.goal[1]/self.xyreso*scale_height)
 
         #robot
         robot_x = self.state[0]/self.xyreso * scale_width
@@ -653,6 +569,14 @@ class SS2D_env(gym.Env):
         self.robottrans.set_translation(robot_x, robot_y)
         self.orientationtrans.set_translation(robot_x, robot_y)
         self.orientationtrans.set_rotation(self.state[2])
+        # robot
+        robot = rendering.make_circle(self.human_radius/self.xyreso*scale_width)
+        self.robottrans = rendering.Transform()
+        robot.add_attr(self.robottrans)
+        robot.set_color(0.0, 0.0, 1.0)
+        self.robottrans.set_translation(robot_x, robot_y)
+        self.viewer.add_onetime(robot)
+
         # human
         for i in range(len(self.human_state)):
             human = rendering.make_circle(self.human_radius/self.xyreso*scale_width)
@@ -670,36 +594,36 @@ class SS2D_env(gym.Env):
             else:
                 self.humantrans.set_translation(self.sim.getAgentPosition(self.human_state[i])[0]/self.xyreso*scale_width, self.sim.getAgentPosition(self.human_state[i])[1]/self.xyreso*scale_height)
                 self.targettrans.set_translation(self.target_position[i][0]/self.xyreso*scale_width, self.target_position[i][1]/self.xyreso*scale_height)
-                #self.targettrans.set_translation(target_point[0]/self.xyreso*scale_width, target_point[1]/self.xyreso*scale_height)
             self.viewer.add_onetime(human)
             if target_color:
                 self.viewer.add_onetime(target)
         # lidar
         if self.vis_lidar:
             for lidar in self.lidar:
-              # print(lidar)
-               if False:#lidar[4]%2==0: # 全部可視化したら見づらいので間引く
-                   continue
-               scan = rendering.make_capsule(np.sqrt(lidar[0]**2+lidar[1]**2)/self.xyreso*scale_width, 2.0)
+               scan = rendering.make_capsule(lidar[1]/self.xyreso*scale_width, 2.0)
                self.scantrans= rendering.Transform()
                scan.add_attr(self.scantrans)
-               if lidar[5]==1:
+               if lidar[3]==1:
                    scan.set_color(1.0, 0.5, 0.5)#赤
-               elif lidar[2]==0:#正面
-                   #scan.set_color(0.5, 1.0, 0.5)#緑
-                   scan.set_color(0.0, 1.0, 1.0)
+               elif lidar[0]==0:#正面
+                   scan.set_color(0.1, 1.0, 0.1)#緑
                else:
                    scan.set_color(0.0, 1.0, 1.0)
                self.scantrans.set_translation(robot_x, robot_y)
-               self.scantrans.set_rotation(self.state[2]+lidar[2])
+               self.scantrans.set_rotation(self.state[2]+lidar[0])
                self.viewer.add_onetime(scan)
             
-        # robot
-        robot = rendering.make_circle(self.human_radius/self.xyreso*scale_width)
-        self.robottrans = rendering.Transform()
-        robot.add_attr(self.robottrans)
-        robot.set_color(0.0, 0.0, 1.0)
-        self.robottrans.set_translation(robot_x, robot_y)
-        self.viewer.add_onetime(robot)
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
+
+    def max2(self,a,b):
+        if a > b:
+            return a
+        else:
+            return b
+
+    def min2(self,a,b):
+        if a < b:
+            return a
+        else:
+            return b
