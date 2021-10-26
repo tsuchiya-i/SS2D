@@ -3,8 +3,6 @@
 import numpy as np
 import math
 
-from time import time
-
 class raycast(object):
     def __init__(self, pose, grid_map, grid_height, grid_width, xyreso, yawreso, min_range, max_range, view_angle):
         self.pose      = pose
@@ -89,9 +87,6 @@ class raycast(object):
                 top_yp = self.negative2zero(top_yp)
 
                 straight_pixel_list = self.calc_straight_line(pose_yp,pose_xp,top_yp,top_xp)
-                if i == 0:
-                    print(i,straight_pixel_list)
-                stime = time()
                 for pix in straight_pixel_list:#0.00020~35s
                     if self.grid_map[pix[0]][pix[1]] > 0:
                         xy = np.array([pix[1]*self.xyreso,(self.grid_height-pix[0]-1)*self.xyreso])
@@ -103,15 +98,11 @@ class raycast(object):
                         break
                 else:
                     d = self.max_range
-                    print(pose_yp,pose_xp,top_yp,top_xp)
                     human_TF = 0
-                total += time()-stime
                 x = d*math.cos(global_angle)
                 y = d*math.sin(global_angle)
 
                 raycast_data.append([angle, d, i, human_TF])#human_TF(0,1)
 
         raycast_data = np.array(raycast_data)
-        #print(total)
-        #print(raycast_data[:,3])
         return raycast_data
