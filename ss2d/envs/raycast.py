@@ -27,6 +27,8 @@ class raycast(object):
             return 0
         else:
             return x
+    def my_sign(self, number):
+        return (number > 0) - (number < 0)
 
     def calc_straight_line(self, i1, j1, i2, j2):
         '''ピクセル (i1, j1) と ピクセル (i2, j2) が通るピクセルの一覧を返す
@@ -35,10 +37,10 @@ class raycast(object):
             points_i = np.array([i1])
             points_j = np.array([j1])
         elif i1 == i2:
-            points_j = np.arange(j1, j2+1)
+            points_j = np.arange(j1, j2+self.my_sign(j2-j1), self.my_sign(j2-j1))
             points_i = np.full(len(points_j),i1)
         elif j1 == j2:
-            points_i = np.arange(i1, i2+1)
+            points_i = np.arange(i1, i2+self.my_sign(i2-i1), self.my_sign(i2-i1))
             points_j = np.full(len(points_i),j1)
     
         else:
@@ -86,8 +88,9 @@ class raycast(object):
                 top_xp = self.negative2zero(top_xp)
                 top_yp = self.negative2zero(top_yp)
 
-                #0.00018s
                 straight_pixel_list = self.calc_straight_line(pose_yp,pose_xp,top_yp,top_xp)
+                if i == 0:
+                    print(i,straight_pixel_list)
                 stime = time()
                 for pix in straight_pixel_list:#0.00020~35s
                     if self.grid_map[pix[0]][pix[1]] > 0:
@@ -100,6 +103,7 @@ class raycast(object):
                         break
                 else:
                     d = self.max_range
+                    print(pose_yp,pose_xp,top_yp,top_xp)
                     human_TF = 0
                 total += time()-stime
                 x = d*math.cos(global_angle)
