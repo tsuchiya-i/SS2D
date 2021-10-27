@@ -51,7 +51,7 @@ class SS2D_env(gym.Env):
         self.max_angular_velocity = math.radians(40) # [rad/s]
 
         # human param
-        self.human_n = 5
+        self.human_n = 20
         self.human_vel_min = 0.8
         self.human_vel_max = 0.8
         self.human_radius = 0.35 #[m]
@@ -370,8 +370,11 @@ class SS2D_env(gym.Env):
 
     def human_step(self):
         self.map = self.original_map.copy()
+        total = 0
         for i in range(len(self.human_state)):
-            velvec = self.set_rvo_velocity2(i,self.human_vel[i])
+            stime = time()
+            velvec = self.set_rvo_velocity(i,self.human_vel[i])
+            total += time()-stime 
             self.sim.setAgentPrefVelocity(self.human_state[i], velvec)
 
             human_pix_i = (self.map_height-1)-int(self.sim.getAgentPosition(self.human_state[i])[1]/self.xyreso)
@@ -384,10 +387,12 @@ class SS2D_env(gym.Env):
             human_pix_fj = self.min2(human_pix_j+human_r_pix,self.map_width-1)+1
 
             self.map[human_pix_si:human_pix_fi,human_pix_sj:human_pix_fj] = 2
-
+        print("##set_rvo_velocity total time##")
+        print(total)
         self.sim.doStep()
 
-    def set_rvo_velocity2(self, i, human_vel):#iは人ナンバー
+    def set_rvo_velocity(self, i, human_vel):#iは人ナンバー
+        #stime = time()
         now_position = np.array(self.sim.getAgentPosition(self.human_state[i]))
         #最近傍ウェイポイント
         if self.target_position[i][0] == -1:
@@ -412,6 +417,7 @@ class SS2D_env(gym.Env):
         target_vector = self.target_position[i] - now_position
         target_vel = target_vector/np.linalg.norm(target_vector) * human_vel
 
+        #print((time()-stime)*30)
         return (target_vel[0], target_vel[1])
 
 
@@ -441,7 +447,18 @@ class SS2D_env(gym.Env):
                             self.walltrans.set_rotation(0)
                             self.viewer.add_geom(wall)
 
-            # waypoint
+            # huaman_waypoints
+            """
+            for point in self.human_waypoints:
+                waypoint = rendering.make_circle(self.robot_radius/self.xyreso*scale_width)
+                self.waypointtrans = rendering.Transform()
+                waypoint.add_attr(self.waypointtrans)
+                waypoint.set_color(1.0, 0.5, 0.0)
+                self.waypointtrans.set_translation(point[0]/self.xyreso*scale_width, 
+                        point[1]/self.xyreso*scale_height)
+                self.viewer.add_geom(waypoint)
+            """
+            # waypoints
             for point in self.waypoints:
                 waypoint = rendering.make_circle(self.robot_radius/self.xyreso*scale_width)
                 self.waypointtrans = rendering.Transform()
@@ -505,7 +522,7 @@ class SS2D_env(gym.Env):
                 self.targettrans.set_translation(self.target_position[i][0]/self.xyreso*scale_width, self.target_position[i][1]/self.xyreso*scale_height)
             self.viewer.add_onetime(human)
             if target_color:
-                self.viewer.add_onetime(target)
+                pass#self.viewer.add_onetime(target)
         # lidar
         if self.vis_lidar:
             for lidar in self.lidar:
