@@ -141,9 +141,9 @@ class settings_gui(Tk):
 
         style = ttk.Style()
         style.configure("console.TFrame", background="white")#, font=20, anchor="w")
-        self.frame_disp = ttk.Frame(padding=5,style="console.TFrame")
+        self.frame_disp = ttk.Frame(padding=5)#,style="console.TFrame")
         self.frame_disp.grid(row=adjust_row, column=0, sticky=W+E)
-        self.label_disp = ScrolledText(self.frame_disp, font=("", 15), height=5)
+        self.label_disp = ScrolledText(self.frame_disp, font=("", 15), height=4,width=50)
         self.label_disp.pack()
         #self.label_disp = ttk.Label(self.frame_disp, text="_", background="white")
         #self.label_disp.pack(side=LEFT)
