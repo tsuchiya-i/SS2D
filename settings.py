@@ -7,6 +7,7 @@ from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
 from tkinter import filedialog
+from tkinter.scrolledtext import ScrolledText
 
 from PIL import Image, ImageTk
 import cv2
@@ -137,20 +138,15 @@ class settings_gui(Tk):
         separator = ttk.Separator(orient="horizontal")
         separator.grid(row=adjust_row, column=0, sticky="ew")
         adjust_row += 1
-        self.frame_disp = ttk.Frame(padding=5)
-        self.frame_disp.grid(row=adjust_row, column=0, sticky=W+E)
-        self.label_disp = ttk.Label(self.frame_disp, text="<output>")
-        self.label_disp.pack(side=LEFT)
-        adjust_row += 1
-        separator = ttk.Separator(orient="horizontal")
-        separator.grid(row=adjust_row, column=0, sticky="ew")
-        adjust_row += 1
+
         style = ttk.Style()
         style.configure("console.TFrame", background="white")#, font=20, anchor="w")
         self.frame_disp = ttk.Frame(padding=5,style="console.TFrame")
         self.frame_disp.grid(row=adjust_row, column=0, sticky=W+E)
-        self.label_disp = ttk.Label(self.frame_disp, text="_", background="white")
-        self.label_disp.pack(side=LEFT)
+        self.label_disp = ScrolledText(self.frame_disp, font=("", 15), height=5)
+        self.label_disp.pack()
+        #self.label_disp = ttk.Label(self.frame_disp, text="_", background="white")
+        #self.label_disp.pack(side=LEFT)
 
         # キャンセルボタンの設置
         #button_wayp = ttk.Button(frame_nwyp, text=("閉じる"), command=quit)
@@ -203,14 +199,12 @@ class settings_gui(Tk):
                 initialdir = "./"+dir_name)
         if len(file_path):
             self.entry_yaml.set(file_path)
-        with open(file_path, 'r') as yml:
-            map_yaml = yaml.load(yml,Loader=yaml.SafeLoader)
-        if 'resolution' in map_yaml:
-            self.entry_reso_obj.insert(END,map_yaml['resolution'])
-        else:
-            self.label_disp["text"] = "yaml file has no resolution"
-            self.label_disp["foreground"] = "yellow"
-
+            with open(file_path, 'r') as yml:
+                map_yaml = yaml.load(yml,Loader=yaml.SafeLoader)
+            if 'resolution' in map_yaml:
+                self.entry_reso_obj.insert(END,map_yaml['resolution'])
+            else:
+                messagebox.showwarning('Error', "This yaml has no resolution value.")
 
     def click_canvas(self, event):
         reso = float(self.entry_reso_obj.get())
@@ -242,16 +236,14 @@ class settings_gui(Tk):
 
     def create(self):
         if self.width == 0:
-            self.label_disp['text'] = "load map image"
-            self.label_disp['foreground'] = "red"
+            messagebox.showwarning('Error', "Load map image.")
             return False
         try:
             reso = float(self.entry_reso_obj.get())
             if reso <= 0:
                raise Exception
         except:
-            self.label_disp['text'] = "correct resolution value"
-            self.label_disp['foreground'] = "red"
+            messagebox.showwarning('Error', "correct resolution value.")
             return False
         self.label_disp['text'] = "click waypoints"
         self.label_disp['foreground'] = "blue"
