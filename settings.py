@@ -16,7 +16,8 @@ import cv2
 
 import gym
 import ss2d
-
+from ss2d.envs.environment import configClass
+"""
 class config_data():
     def __init__(self):
         self.thresh_map = None #image array(2D)
@@ -34,7 +35,7 @@ class config_data():
         self.human_detect = True #bool
         self.wall_render = False #bool
         self.console_output = True #bool
-
+"""
 
 def image_thresh(file_name):
     img = cv2.imread(file_name)
@@ -542,7 +543,7 @@ class settings_gui(Tk):
         self.env.close()
         
     def save_config(self):
-        save_data = config_data()
+        save_data = configClass()
         save_data.thresh_map = self.cv_thresh_image #[[],[],,,]
         save_data.start_points = self.waypoints #(m,m)
         if self.goal_option.get()==0:
@@ -570,11 +571,11 @@ class settings_gui(Tk):
             print(vars(save_data))
             text = f.getvalue().replace(", '",",\n'")
             text = text.replace(", [",",\n[")
+            sys.stdout = sys.__stdout__
 
         with open("./ss2d/envs/config.bin", mode='wb') as f:
             pickle.dump(save_data, f)
         self.insert_disp_text(text+"Setting Saved.\n\n>")
-
         
     def delete_disp_text(self,start,end):
         self.scr_disp["state"] = NORMAL
