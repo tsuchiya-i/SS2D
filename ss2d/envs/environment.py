@@ -1,8 +1,8 @@
 #coding:utf-8
-
 import numpy as np
 import math
 import random
+import pickle
 from time import time
 
 import cv2
@@ -15,20 +15,43 @@ from ss2d.envs.raycast import *
 
 target_color = True
 
+
+class configClass():
+    def __init__(self):
+        self.thresh_map = None #image array(2D)
+        self.start_points = [] #[[x1,y1],[x2,y2],,] 
+        self.goal_points = []
+        self.human_points = []
+        self.reso = 0.05 #m/pix
+        self.world_dt = 0.1 #sec
+        self.robot_r = 0.3 #m
+        self.lidar_max = 10 #m
+        self.lidar_min = 0.2 #m
+        self.lidar_angle = 90 #deg
+        self.lidar_reso = 10 #deg
+        self.human_n = 0 #person
+        self.human_detect = True #bool
+        self.wall_render = False #bool
+        self.console_output = True #bool
+
+
 class SS2D_env(gym.Env):
     def __init__(self):
-        self.show = True
+        with open(__file__.replace("environment.py","")+"config.bin", mode='rb') as f:
+            self.config = pickle.load(f)
+
+        self.show = self.config.console_output #bool
         # world param
+        self.dt = self.config.world_dt #[s]
         self.map_height= 0 #[pix]
         self.map_width = 0 #[pix]
         self.max_dist = 1000
-        self.dt = 0.1 #[s]
         self.world_time= 0.0 #[s]
         self.step_count = 0 #[]
         self.reset_count = 0 #[]
 
         # robot param
-        self.robot_radius = 0.3 #[m]
+        self.robot_radius = self.config.robot_r #[m]
         # state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)
         self.state = np.array([0.0, 0.0, math.radians(0), 0.0, 0.0])
 
@@ -39,31 +62,31 @@ class SS2D_env(gym.Env):
         self.max_angular_velocity = math.radians(40) # [rad/s]
 
         # human param
-        self.human_n = 20
+        self.human_n = self.config.human_n
         self.human_vel_min = 0.8
         self.human_vel_max = 0.8
-        self.human_radius = 0.35 #[m]
+        self.human_radius = 0.25 #[m]
         self.nearest_j = [0] * self.human_n #
 
         # lidar param
-        self.yawreso = math.radians(10) # ※360から割り切れる(1~360)[rad]
-        self.min_range = 0.20 # [m]
-        self.max_range = 10.0 # [m]
-        self.view_angle = math.radians(90) #[rad]
+        self.yawreso = math.radians(self.config.lidar_reso) # ※360から割り切れる(1~360)[rad]
+        self.min_range = self.config.lidar_min # [m]
+        self.max_range = self.config.lidar_max # [m]
+        self.view_angle = math.radians(self.config.lidar_angle) #[rad]
         self.lidarnum = int(int(self.view_angle/(2*self.yawreso))*2+1)
 
         #observe param
-        self.observe_mode = 1#0:(lidar+goal) 1:(lidar+human+goal)
+        self.human_detect = self.config.human_detect #F:(lidar+goal) T:(lidar+human+goal)
 
         # set action_space (velocity[m/s], omega[rad/s])
         self.action_low  = np.array([self.min_velocity, self.min_angular_velocity]) 
         self.action_high = np.array([self.max_velocity, self.max_angular_velocity]) 
         self.action_space = spaces.Box(self.action_low, self.action_high, dtype=np.float32)
         # set observation_space
-        if self.observe_mode == 0:
+        if self.human_detect == 0:
             self.observation_low = np.concatenate([[0.0]*self.lidarnum ,[0.0, -math.pi,]],0)
             self.observation_high = np.concatenate([[self.max_range]*self.lidarnum ,[self.max_dist,-math.pi]],0)
-        elif self.observe_mode == 1:
+        elif self.human_detect == 1:
             self.observation_low = np.concatenate([[0.0]*(self.lidarnum*2) ,[0.0, -math.pi,]],0)
             self.observation_high = np.concatenate([[self.max_range]*(self.lidarnum*2) ,[self.max_dist,-math.pi]],0)
         self.observation_space = spaces.Box(low = self.observation_low, high = self.observation_high, dtype=np.float32)
@@ -76,7 +99,7 @@ class SS2D_env(gym.Env):
         #rendering
         self.vis_lidar = True
         self.viewer = None
-        self.wall_switch = False
+        self.wall_switch = self.config.wall_render
 
     
     # 状態を初期化し、初期の観測値を返す
@@ -148,9 +171,9 @@ class SS2D_env(gym.Env):
         human_dist_data = self.lidar[:, 3]*self.lidar[:, 1]
         human_dist_data = np.where(human_dist_data==0,10,human_dist_data)
 
-        if self.observe_mode == 0:
+        if self.human_detect == 0:
             observation = self.lidar[:, 1]
-        elif self.observe_mode == 1:
+        elif self.human_detect == 1:
             observation = np.concatenate([self.lidar[:, 1], human_dist_data], 0)
 
         self.distgoal = self.calc_goal_info()
