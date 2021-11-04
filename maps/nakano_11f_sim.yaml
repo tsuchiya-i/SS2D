@@ -1,8 +1,0 @@
-image: nakano_11f_sim.png
-resolution: 0.050000
-# origin: [-37.500000, -12.000000, 0.000000]
-origin: [-39.600000, -1.400000, 0.000000]
-negate: 0
-occupied_thresh: 0.5
-free_thresh: 0.02
-
