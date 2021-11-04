@@ -2,28 +2,16 @@
 
 import numpy as np
 import math
-import cv2
-import time
 import random
+from time import time
 
+import cv2
 import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
-
-from ss2d.envs.raycast import *
-
 import rvo2
 
-from time import time
-
-wall_switch = False
-human_mode = 6 #0:stop 1:straight 2:random 3:bound 4:onedirection 5:RVO_straight 6:RVO_near_waypoint
-
-human_detect = True#True#True
-world_map = 1 #0:free 1:nakano11F
-
-mode = 1 #0:normal, 1:simple, 2:test
-
+from ss2d.envs.raycast import *
 
 target_color = True
 
@@ -88,6 +76,7 @@ class SS2D_env(gym.Env):
         #rendering
         self.vis_lidar = True
         self.viewer = None
+        self.wall_switch = False
 
     
     # 状態を初期化し、初期の観測値を返す
@@ -140,7 +129,6 @@ class SS2D_env(gym.Env):
         self.human_step()
         self.robot_step(action)
         self.sim.setAgentPosition(self.rvo_robot,(self.state[0],self.state[1]))
-
         self.observation = self.observe()
         reward = self.reward(action)
         self.done = self.is_done(self.show)
@@ -159,7 +147,6 @@ class SS2D_env(gym.Env):
 
         human_dist_data = self.lidar[:, 3]*self.lidar[:, 1]
         human_dist_data = np.where(human_dist_data==0,10,human_dist_data)
-        #human_detect_data = [self.max_range]*9 #human no detect
 
         if self.observe_mode == 0:
             observation = self.lidar[:, 1]
@@ -334,9 +321,6 @@ class SS2D_env(gym.Env):
             self.neighbors_array = np.array([[0,1,9],[1,2,0],[2,3,1,7],[3,4,2,6],[4,5,3],[5,6,4],[6,7,5,3],[7,8,6,2],[8,9,7],[9,0,8]])
 
     def rvomap_set(self,rvo_map_id=0):
-        #if world_map == 0:
-        #    map_line = [(1.8, 48.1), (69.7, 48.1), (69.5, 1.7), (1.9, 1.7)]
-        #    o1 = self.sim.addObstacle(map_line)
         if rvo_map_id == 1:
             map_line = [(7.6, 22.9), (10.3, 22.7), (10.2, 19.9), (41.7, 19.5), (41.7, 16.9), (53.4, 16.9), (53.4, 19.5), (58.9, 19.5), (59.0, 16.9), (63.8, 17.1), (63.9, 10.0), (59.2, 10.0), (59.2, 7.5), (53.9, 7.4), (53.8, 9.8), (53.0, 9.8), (53.2, 1.5), (47.1, 1.2), (46.9, 9.6), (51.6, 9.7), (41.6, 9.7), (41.5, 7.2), (7.5, 7.1), (7.5, 12.0), (0.7, 12.0), (0.8, 15.2), (7.5, 15.1), (7.5, 18.2), (3.6, 18.2), (3.5, 20.1), (4.4, 20.1), (4.5, 19.2), (7.6, 19.2)]
             map_line2 = [(10.2, 16.6), (10.2, 17.9), (12.8, 17.8), (12.8, 17.2), (15.8, 17.2), (15.8, 17.7), (16.5, 17.8), (16.9, 17.2), (20.0, 17.2), (20.0, 17.6), (25.2, 17.7), (25.4, 17.0), (28.8, 16.9), (28.6, 17.4), (30.0, 17.4), (30.1, 16.9), (35.2, 16.9), (35.2, 17.5), (36.5, 17.2), (36.5, 16.9), (39.5, 16.8), (39.7, 9.7), (36.3, 9.7), (36.3, 9.2), (35.1, 9.2), (35.1, 9.7), (30.2, 9.6), (30.1, 9.1), (28.5, 9.2), (28.4, 9.8), (25.4, 9.7), (25.4, 9.1), (20.0, 9.1), (20.0, 9.6), (16.7, 9.6), (16.7, 9.2), (15.8, 9.2), (15.7, 9.6), (12.5, 9.8), (12.5, 9.2), (10.2, 9.1), (10.1, 11.1), (11.6, 11.1), (11.7, 16.5)]
@@ -387,8 +371,6 @@ class SS2D_env(gym.Env):
             human_pix_fj = self.min2(human_pix_j+human_r_pix,self.map_width-1)+1
 
             self.map[human_pix_si:human_pix_fi,human_pix_sj:human_pix_fj] = 2
-        print("##set_rvo_velocity total time##")
-        print(total)
         self.sim.doStep()
 
     def set_rvo_velocity(self, i, human_vel):#iは人ナンバー
@@ -432,7 +414,7 @@ class SS2D_env(gym.Env):
         if self.viewer is None:
             self.viewer = rendering.Viewer(screen_width, screen_height)
             # wall
-            if wall_switch: 
+            if self.wall_switch: 
                 for i in range(screen_height):
                     for j in range(screen_width):
     
@@ -515,11 +497,8 @@ class SS2D_env(gym.Env):
             target.add_attr(self.targettrans)
             target.set_color(0.1,1.0,0.1)
             
-            if human_mode < 5:
-                self.humantrans.set_translation(self.human_state[i][0]/self.xyreso*scale_width, self.human_state[i][1]/self.xyreso*scale_height)
-            else:
-                self.humantrans.set_translation(self.sim.getAgentPosition(self.human_state[i])[0]/self.xyreso*scale_width, self.sim.getAgentPosition(self.human_state[i])[1]/self.xyreso*scale_height)
-                self.targettrans.set_translation(self.target_position[i][0]/self.xyreso*scale_width, self.target_position[i][1]/self.xyreso*scale_height)
+            self.humantrans.set_translation(self.sim.getAgentPosition(self.human_state[i])[0]/self.xyreso*scale_width, self.sim.getAgentPosition(self.human_state[i])[1]/self.xyreso*scale_height)
+            self.targettrans.set_translation(self.target_position[i][0]/self.xyreso*scale_width, self.target_position[i][1]/self.xyreso*scale_height)
             self.viewer.add_onetime(human)
             if target_color:
                 pass#self.viewer.add_onetime(target)
@@ -541,6 +520,11 @@ class SS2D_env(gym.Env):
             
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
+
+    def close(self):
+        if self.viewer:
+            self.viewer.close()
+            self.viewer = None
 
     def max2(self,a,b):
         if a > b:
