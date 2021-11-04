@@ -1,0 +1,7 @@
+image: nakano_11f_quarter.png
+resolution: 0.20
+origin: [-34.15, -19.20, 0.00]
+negate: 0
+occupied_thresh: 0.5
+free_thresh: 0.02
+
