@@ -3,7 +3,6 @@ import numpy as np
 import math
 import random
 import pickle
-from time import time
 
 import cv2
 import gym
@@ -39,6 +38,7 @@ class SS2D_env(gym.Env):
     def __init__(self):
         with open(__file__.replace("environment.py","")+"config.bin", mode='rb') as f:
             self.config = pickle.load(f)
+            print("----Load config data----")
 
         self.show = self.config.console_output #bool
         # world param
@@ -92,9 +92,12 @@ class SS2D_env(gym.Env):
         self.observation_space = spaces.Box(low = self.observation_low, high = self.observation_high, dtype=np.float32)
 
         #way point
-        self.way_point_set() #default:0
+        #self.way_point_set() #default:0
+        self.waypoints = np.array(self.config.start_points)
+        self.human_waypoints = np.array(self.config.human_points)
+        self.goal_points = np.array(self.config.goal_points)
         self.near_n = 2 #人の行き先の選択肢の数(現在地(停止)＋near_n)
-        self.neighbors_vector_set(self.near_n,neighbors_id=1)
+        self.neighbors_vector_set(self.near_n,neighbors_id=0)
 
         #rendering
         self.vis_lidar = True
@@ -104,28 +107,23 @@ class SS2D_env(gym.Env):
     
     # 状態を初期化し、初期の観測値を返す
     def reset(self):
-        """
-        if self.reset_count == 0:
-            self.xyreso = 0.05*4 #[m/pix]
-            self.set_image_map(__file__[:-24]+'maps/nakano_11f_sim.png', self.xyreso, 1.0/4)
-        if self.reset_count > 0:
-            self.xyreso = 0.05*4 #[m/pix]
-            self.set_image_map(__file__[:-24]+'maps/paint_map/line_025.png', self.xyreso, 1)
-        """
-        self.xyreso = 0.05*4 #[m/pix]
-        self.set_image_map(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
+        #self.set_image_map_old(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
+        self.set_image_map()
         
-        self.start_p_num = random.randint(0, len(self.waypoints)-1)
-        self.start_p_num = len(self.waypoints)-1
-        goal_p_num = random.randint(0, len(self.waypoints)-1)
-        while self.start_p_num==goal_p_num:
-            goal_p_num= random.randint(0, len(self.waypoints)-1)
+        if (self.goal_points == self.waypoints).all():
+            self.start_p_num = random.randint(0, len(self.waypoints)-1)
+            goal_p_num = random.randint(0, len(self.waypoints)-1)
+            while self.start_p_num==goal_p_num:
+                goal_p_num= random.randint(0, len(self.waypoints)-1)
+        else:
+            self.start_p_num = random.randint(0, len(self.waypoints)-1)
+            goal_p_num= random.randint(0, len(self.goal_points)-1)
         self.start_p = self.waypoints[self.start_p_num]
-        self.goal = self.waypoints[goal_p_num]
+        self.goal = self.goal_points[goal_p_num]
 
-        #self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
-                #math.radians(random.uniform(179, -179)),0,0])
-        self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], math.radians(0),0,0])
+
+        self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
+            math.radians(random.uniform(179, -179)),0,0])
 
         #initial human pose
         self.init_human()
@@ -162,7 +160,6 @@ class SS2D_env(gym.Env):
     # 観測結果を表示
     def observe(self):
         # Raycasting
-        stime = time()
         Raycast = raycast(self.state[0:3], self.map, self.map_height,self.map_width, 
                                 self.xyreso, self.yawreso,
                                 self.min_range, self.max_range,self.view_angle)
@@ -202,10 +199,24 @@ class SS2D_env(gym.Env):
             dist_rwd = (self.old_distgoal[0]-self.distgoal[0])/(self.max_velocity*self.dt)
             angle_rwd = (abs(self.old_distgoal[1])-abs(self.distgoal[1]))/(self.max_angular_velocity*self.dt)
             time_reward = -self.world_time/(1500*self.dt) #max 1500steps
-            rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + wall_rwd + time_reward#うまく行った
+            rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + wall_rwd + time_reward
         return rwd
 
-    def set_image_map(self, map_filename, xyreso, scale=1):
+    def set_image_map(self, scale=1):
+        #self.map_height, width, self.map, self.original_map self.max_dist set
+        img_thresh = self.config.thresh_map
+        if img_thresh.shape[0] != self.map_height or img_thresh.shape[1] != self.map_width:
+            self.map_height= img_thresh.shape[0] #[pix]
+            self.map_width = img_thresh.shape[1] #[pix]
+            if self.viewer != None:
+                self.viewer.close()
+                self.viewer = None
+        self.map = np.where(img_thresh>100, 0, 1)
+        self.original_map = np.where(img_thresh>100, 0, 1)
+        self.xyreso = self.config.reso
+        self.max_dist = (self.map_height+self.map_width)*self.xyreso
+
+    def set_image_map_old(self, map_filename, xyreso, scale=1):
         #self.map_height, width, self.map, self.original_map self.max_dist set
         im = cv2.imread(map_filename)
         
@@ -218,10 +229,6 @@ class SS2D_env(gym.Env):
         threshold = 25
         # 二値化(閾値100を超えた画素を255白にする。)
         ret, img_thresh = cv2.threshold(im_gray, threshold, 255, cv2.THRESH_BINARY)
-
-        #cv2.imshow('image',im)
-        #cv2.waitKey(0)
-        #cv2.destroyAllWindows()
         
         if img_thresh.shape[0] != self.map_height or img_thresh.shape[1] != self.map_width:
             self.map_height= img_thresh.shape[0] #[pix]
@@ -256,7 +263,7 @@ class SS2D_env(gym.Env):
                 print("(%f, %f) is not movable area" % (x*self.xyreso, y*self.xyreso))
             return False
 
-    # 高速衝突判定
+    # 衝突判定
     def is_collision(self, show=False):
         x = int(self.state[0]/self.xyreso) #[cell]
         y = int(self.state[1]/self.xyreso) #[cell]
@@ -285,13 +292,12 @@ class SS2D_env(gym.Env):
     def is_done(self, show=False):
         if self.is_collision(show):
             return True
-        elif (not self.is_movable(show)):# or self.is_collision(show) or self.is_goal(show):
+        elif (not self.is_movable(show)):
             return True
         elif self.is_goal(show):
             return True
         else:
             return False
-
 
     def calc_goal_info(self):
         d = np.linalg.norm(self.goal-self.state[:2])
@@ -319,7 +325,7 @@ class SS2D_env(gym.Env):
         #waypoint上にランダムにnum人の人をスポーン
         while len(rand_num_his) < self.human_n:
             rand_num = random.randint(0, len(self.waypoints)-1)
-            if (not rand_num in rand_num_his) and (rand_num != self.start_p_num):
+            if (not rand_num in rand_num_his) and (rand_num != self.start_p_num or not (self.human_waypoints == self.waypoints).all()):
                 rand_num_his.append(rand_num)
                 self.hstart_p = (self.waypoints[rand_num])
                 self.human_state.append(self.sim.addAgent((self.hstart_p[0], self.hstart_p[1])))
@@ -344,6 +350,14 @@ class SS2D_env(gym.Env):
             self.neighbors_array = np.array([[0,1,9],[1,2,0],[2,3,1,7],[3,4,2,6],[4,5,3],[5,6,4],[6,7,5,3],[7,8,6,2],[8,9,7],[9,0,8]])
 
     def rvomap_set(self,rvo_map_id=0):
+        if rvo_map_id == 0:
+            pass
+            """
+            for points in self.config.rvomap:
+                map_line = points
+                obstacle = self.sim.addObstacle(map_line)
+            map_line = []#self.config.rvomap
+            """
         if rvo_map_id == 1:
             map_line = [(7.6, 22.9), (10.3, 22.7), (10.2, 19.9), (41.7, 19.5), (41.7, 16.9), (53.4, 16.9), (53.4, 19.5), (58.9, 19.5), (59.0, 16.9), (63.8, 17.1), (63.9, 10.0), (59.2, 10.0), (59.2, 7.5), (53.9, 7.4), (53.8, 9.8), (53.0, 9.8), (53.2, 1.5), (47.1, 1.2), (46.9, 9.6), (51.6, 9.7), (41.6, 9.7), (41.5, 7.2), (7.5, 7.1), (7.5, 12.0), (0.7, 12.0), (0.8, 15.2), (7.5, 15.1), (7.5, 18.2), (3.6, 18.2), (3.5, 20.1), (4.4, 20.1), (4.5, 19.2), (7.6, 19.2)]
             map_line2 = [(10.2, 16.6), (10.2, 17.9), (12.8, 17.8), (12.8, 17.2), (15.8, 17.2), (15.8, 17.7), (16.5, 17.8), (16.9, 17.2), (20.0, 17.2), (20.0, 17.6), (25.2, 17.7), (25.4, 17.0), (28.8, 16.9), (28.6, 17.4), (30.0, 17.4), (30.1, 16.9), (35.2, 16.9), (35.2, 17.5), (36.5, 17.2), (36.5, 16.9), (39.5, 16.8), (39.7, 9.7), (36.3, 9.7), (36.3, 9.2), (35.1, 9.2), (35.1, 9.7), (30.2, 9.6), (30.1, 9.1), (28.5, 9.2), (28.4, 9.8), (25.4, 9.7), (25.4, 9.1), (20.0, 9.1), (20.0, 9.6), (16.7, 9.6), (16.7, 9.2), (15.8, 9.2), (15.7, 9.6), (12.5, 9.8), (12.5, 9.2), (10.2, 9.1), (10.1, 11.1), (11.6, 11.1), (11.7, 16.5)]
@@ -379,25 +393,19 @@ class SS2D_env(gym.Env):
         self.map = self.original_map.copy()
         total = 0
         for i in range(len(self.human_state)):
-            stime = time()
             velvec = self.set_rvo_velocity(i,self.human_vel[i])
-            total += time()-stime 
             self.sim.setAgentPrefVelocity(self.human_state[i], velvec)
-
             human_pix_i = (self.map_height-1)-int(self.sim.getAgentPosition(self.human_state[i])[1]/self.xyreso)
             human_pix_j = int(self.sim.getAgentPosition(self.human_state[i])[0]/self.xyreso)
-            
             human_r_pix = int(self.human_radius/self.xyreso)
             human_pix_si = self.max2(human_pix_i-human_r_pix,0)
             human_pix_sj = self.max2(human_pix_j-human_r_pix,0)
             human_pix_fi = self.min2(human_pix_i+human_r_pix,self.map_height-1)+1
             human_pix_fj = self.min2(human_pix_j+human_r_pix,self.map_width-1)+1
-
             self.map[human_pix_si:human_pix_fi,human_pix_sj:human_pix_fj] = 2
         self.sim.doStep()
 
     def set_rvo_velocity(self, i, human_vel):#iは人ナンバー
-        #stime = time()
         now_position = np.array(self.sim.getAgentPosition(self.human_state[i]))
         #最近傍ウェイポイント
         if self.target_position[i][0] == -1:
@@ -422,7 +430,6 @@ class SS2D_env(gym.Env):
         target_vector = self.target_position[i] - now_position
         target_vel = target_vector/np.linalg.norm(target_vector) * human_vel
 
-        #print((time()-stime)*30)
         return (target_vel[0], target_vel[1])
 
 
