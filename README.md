@@ -31,6 +31,6 @@ for _ i in range(1000):
 
 It should look someting like this test
 
-![demo](https://github.com/Sadaku1993/gym-pathplan/blob/master/sample.gif)
+![demo](https://github.com/tsuchiya-i/SS2D/blob/main/navigation_sample.gif)
 
 
