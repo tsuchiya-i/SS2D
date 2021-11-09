@@ -19,6 +19,12 @@ $ pip3 install -r requirements.txt
 $ python3 setup.py build
 $ python3 setup.py install
 ```
+If you get a permission error, run this command.
+```
+$ sudo python3 setup.py install
+```
+
+
 
 ## Installing TensorFlow
 ```
