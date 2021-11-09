@@ -1,37 +1,25 @@
 #coding:utf-8
-
-import gym
 import numpy as np
-import time
+import gym
 import ss2d
-
-#np.set_printoptions(suppress=True)
 
 env = gym.make('ss2d-v0')
 observation = env.reset()
 
-
-#入力・出力関連
+#input,output property
 print("----------------------------")
-print(env.observation_space)
-print("----------------------------")
-print(env.action_space)
-print("----------------------------")
-print(env.action_space.high)
-print("----------------------------")
-print(env.action_space.low)
+print("observation_space: ",env.observation_space)
+print("action_space: ",env.action_space)
+print("action_space.high: ", env.action_space.high)
+print("action_space.low: ", env.action_space.low)
 print("----------------------------")
 
-action = [0.0,0.0]
-
-for i in range(10000):
+for i in range(10000): #10000step
     env.render()
     action = env.action_space.sample() #random_action
-    #action = [0.8,0.0] #直進
+    #action = [0.0,0.0] #straight
     observation, reward, done,  _ = env.step(action)
-
-    #print(observation)
-
     if done:
-        env.reset() #衝突ORゴールで環境リセット
-        #break
+        env.reset()
+
+env.close()

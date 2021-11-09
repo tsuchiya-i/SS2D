@@ -1,20 +1,20 @@
 import numpy as np
 import gym
+import os
 
 import ss2d
 
-from keras.callbacks import TensorBoard
-from keras.models import Sequential, Model
-from keras.layers import Dense, Activation, Flatten, Input, Concatenate
-from keras.optimizers import Adam
+from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense, Activation, Flatten, Input, Concatenate
+from tensorflow.keras.optimizers import Adam
 
 from rl.agents import DDPGAgent
 from rl.memory import SequentialMemory
 from rl.random import OrnsteinUhlenbeckProcess
-import matplotlib.pyplot as plt
 
-import tensorflow as tf
-from playsound import playsound
+save_weight_path = "./weight/ddpg.h5f"
+check_weight_path = "./weight/ddpg_actor.h5f.index"
 
 def main():
     # Get the environment and extract the number of actions.
@@ -64,23 +64,24 @@ def main():
                       memory=memory, nb_steps_warmup_critic=100, nb_steps_warmup_actor=100,
                       random_process=random_process, gamma=.99, target_model_update=1e-3)
     agent.compile(Adam(lr=.001, clipnorm=1.), metrics=['mae'])
-    
-    #tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="logs")
     tensorboard_callback = TensorBoard(log_dir="logs", histogram_freq=1)
+    
+    if os.path.exists(check_weight_path):
+        agent.load_weights(save_weight_path)
+        print("find weights-file")
+    else:
+        print("not found weights-file")
 
     # Okay, now it's time to learn something! We visualize the training here for show, but this
     # slows down training quite a lot. You can always safely abort the training prematurely using
     # Ctrl + C.
-    
     nb_steps_ = 50000000
     nb_max_episode_steps_ = 1500
-    plt_num = int(nb_steps_/nb_max_episode_steps_)
     
     train_history = agent.fit(env, nb_steps=nb_steps_, visualize=True, verbose=1, nb_max_episode_steps=nb_max_episode_steps_)
     
     # After training is done, we save the final weights.
-    #agent.save_weights('./now_train_weight/ddpg_{}_weights.h5f'.format(ENV_NAME), overwrite=True)
-    agent.save_weights('./weight/ddpg.h5f', overwrite=True)
+    agent.save_weights(save_weight_path, overwrite=True)
     
     # Finally, evaluate our algorithm for 5 episodes.
     agent.test(env, nb_episodes=5, visualize=True, nb_max_episode_steps=1500)

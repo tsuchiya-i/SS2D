@@ -2,27 +2,19 @@
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import gym
 import ss2d
 import numpy as np
-import matplotlib.pyplot as plt
-import numpy as np
-import math
-import cv2
-import time
-import random
 
-from keras.models import Sequential, Model
-from keras.layers import Dense, Activation, Flatten, Input, Concatenate
-from keras.optimizers import Adam
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense, Activation, Flatten, Input, Concatenate
+from tensorflow.keras.optimizers import Adam
 from rl.agents import DDPGAgent
 from rl.memory import SequentialMemory
 from rl.random import OrnsteinUhlenbeckProcess
-import matplotlib.pyplot as plt
-import tensorflow as tf
 
-import rl
+weight_path = "./trained_weight/ddpg_weights.h5f"
+check_weight_path = "./trained_weight/ddpg_weights_actor.h5f.index"
 
 # Get the environment and extract the number of actions.
 env = gym.make('ss2d-v0')
@@ -68,10 +60,10 @@ agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_acti
                   random_process=random_process, gamma=.99, target_model_update=1e-3)
 agent.compile(Adam(lr=.001, clipnorm=1.), metrics=['mae'])
 
-try:
-    agent.load_weights('./trained_weight/ddpg_weights.h5f')
+if os.path.exists(check_weight_path):
+    agent.load_weights(weight_path)
     print("find weights-file")
-except:
+else:
     print("not found weights-file")
 
 observation = env.reset()

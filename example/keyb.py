@@ -2,8 +2,13 @@
 from pynput import keyboard
 import gym
 import numpy as np
-import time
 import ss2d
+
+#################################
+### keyboard controll program ###
+###    cursor movement keys   ###
+#################################
+
 
 env = gym.make('ss2d-v0')
 env.reset()
@@ -20,7 +25,6 @@ def on_press(key):
 
 def on_release(key):
     if key == keyboard.Key.esc:
-        # Stop listener
         return False
 
 def gym_run(x,z):
@@ -30,10 +34,7 @@ def gym_run(x,z):
     observation, reward, done,  _ = env.step(action)
    
     if done:
-        env.reset() #衝突ORゴールで環境リセット
-        #break
+        env.reset() 
 
-
-# Collect events until released
 with keyboard.Listener(on_press=on_press,on_release=on_release) as listener:
     listener.join()
