@@ -45,7 +45,15 @@ $ pip3 install -e .
 ```
 
 ## Note
-### error code:
+Error code1:
+```
+ModuleNotFoundError: No module named 'skbuild'
+```
+Then run this command
+```
+pip3 install -U pip
+```
+Error code2:
 ```
 ModuleNotFoundError: No module named 'tkinter'
 ```
@@ -53,7 +61,7 @@ Then run this command
 ```
 sudo apt-get install python3-tk
 ```
-### error code:
+error code3:
 ```
 ModuleNotFoundError: No module named 'PIL.ImageTk'
 ```
