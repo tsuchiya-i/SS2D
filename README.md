@@ -6,7 +6,7 @@ Python version 3.6 or higher is recommended.
 - OpenAI Gym
 - OpenCV
 - Pillow
-- Python-RVO2
+- [Python-RVO2](https://github.com/sybrenstuvel/Python-RVO2)
 - tensorflow
 - Keras-rl2
 
