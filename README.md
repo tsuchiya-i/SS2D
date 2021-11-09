@@ -43,6 +43,8 @@ $ git clone https://github.com/tsuchiya-i/SS2D.git
 $ cd SS2D
 $ pip3 install -e .
 ```
+## Demo
+![demo](https://github.com/tsuchiya-i/SS2D/blob/main/navigation_sample.gif)
 
 ## Note
 #### Error code1:
@@ -69,9 +71,4 @@ Then run this command
 ```
 sudo apt install python3-pil.imagetk
 ```
-
-
-## Demo
-![demo](https://github.com/tsuchiya-i/SS2D/blob/main/navigation_sample.gif)
-
 
