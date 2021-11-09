@@ -1,20 +1,13 @@
 # OpenAI Gym original environments
 
 ## Requirement 
-- python3.6
+- Python3.6
 - OpenAI Gym
 - OpenCV
+- Pillow
 - Python-RVO2
 
-## Building OpenAI Gym from source code
-
-```
-git clone https://github.com/openai/gym
-cd gym
-pip install -e .
-```
 ## Building RVO2 from source code
-
 ```
 git clone https://github.com/sybrenstuvel/Python-RVO2.git
 cd Python-RVO2

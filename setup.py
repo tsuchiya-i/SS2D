@@ -2,9 +2,10 @@ from setuptools import setup, find_packages
 
 setup(
     name="ss2d",
-    version='0.0.1',
-    description='2D Simple robot simulator',
+    version='0.0.2',
+    description='Simple Simulator 2D',
     author='tsuchiya-i',
-    author_email='i@gmail.com',
+    author_email='',
+    install_requires=["opencv-python", "gym", "keras-rl2", "pillow"],
     packages=find_packages()
 )
