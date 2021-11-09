@@ -6,8 +6,11 @@
 - OpenCV
 - Pillow
 - Python-RVO2
+- tensorflow
+- Keras-rl2
 
 ## Building RVO2 from source code
+[Cython](http://cython.org/)
 ```
 git clone https://github.com/sybrenstuvel/Python-RVO2.git
 cd Python-RVO2
