@@ -47,10 +47,10 @@ $ git clone https://github.com/tsuchiya-i/SS2D.git
 $ cd SS2D
 $ pip3 install -e .
 ```
-## Demo
+# Demo
 ![demo](https://github.com/tsuchiya-i/SS2D/blob/main/navigation_sample.gif)
 
-## Note
+# Note
 #### Error code1:
 ```
 ModuleNotFoundError: No module named 'skbuild'
