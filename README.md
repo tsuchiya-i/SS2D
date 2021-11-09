@@ -44,6 +44,26 @@ $ cd SS2D
 $ pip3 install -e .
 ```
 
+## Note
+If you get this error
+```
+ModuleNotFoundError: No module named 'tkinter'
+```
+Then run this command
+```
+sudo apt-get install python3-tk
+```
+
+If you get this error
+```
+ModuleNotFoundError: No module named 'tkinter'
+```
+Then run this command
+```
+sudo apt-get install python3-tk
+```
+
+
 ## Demo
 ![demo](https://github.com/tsuchiya-i/SS2D/blob/main/navigation_sample.gif)
 
