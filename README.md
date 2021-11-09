@@ -26,6 +26,10 @@ $ sudo python3 setup.py install
 
 ## Building OpenAI Gym from source code
 ```
+pip3 install gym
+```
+or
+```
 git clone https://github.com/openai/gym
 cd gym
 pip install -e .
