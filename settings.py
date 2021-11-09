@@ -17,34 +17,12 @@ import cv2
 import gym
 import ss2d
 from ss2d.envs.environment import configClass
-"""
-class config_data():
-    def __init__(self):
-        self.thresh_map = None #image array(2D)
-        self.start_points = [] #[[x1,y1],[x2,y2],,] 
-        self.goal_points = []
-        self.human_points = []
-        self.reso = 0.05 #m/pix
-        self.world_dt = 0.1 #sec
-        self.robot_r = 0.3 #m
-        self.lidar_max = 10 #m
-        self.lidar_min = 0.2 #m
-        self.lidar_angle = 90 #deg
-        self.lidar_reso = 10 #deg
-        self.human_n = 0 #person
-        self.human_detect = True #bool
-        self.wall_render = False #bool
-        self.console_output = True #bool
-"""
 
 def image_thresh(file_name):
     img = cv2.imread(file_name)
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     threshold = 240
     ret, img_thresh = cv2.threshold(img_gray, threshold, 255, cv2.THRESH_BINARY)
-    #cv2.imshow('image',img_thresh)
-    #cv2.waitKey(0)
-    #cv2.destroyAllWindows()
     return img_thresh
 
 class settings_gui(Tk):
@@ -52,13 +30,13 @@ class settings_gui(Tk):
         super().__init__()
         adjust_row = 10
         self.nwaypoints = []
-        #保存パラメータ
+        #save parameter
         self.waypoints = []
         self.goal_points = []
         self.human_points = []
         self.reso = 0
         
-        #画像設置
+        #image set
         self.canvas_width = 600
         self.canvas_height = 400
         self.width, self.height = (0,0)
@@ -345,10 +323,8 @@ class settings_gui(Tk):
         self.button_save_config.pack(side=TOP)
 
         ###################################
-        ####### Frame display text#########
+        ####### Frame display text ########
         ###################################
-        #separator = ttk.Separator(orient="horizontal")
-        #separator.grid(row=adjust_row, column=0, sticky="ew")
         adrow = max(R_adjust_row,adjust_row+1)
         self.frame_disp = ttk.Frame(padding=5)
         self.frame_disp.grid(rowspan=adrow, row=0, column=2)
@@ -356,7 +332,6 @@ class settings_gui(Tk):
         self.scr_disp.pack()
         self.insert_disp_text("> ")
 
-    # ファイル指定の関数
     def imagefile_dialog(self):
         format_name = ".bmp .BMP .png .PNG .jpg .JPG"
         dir_name = "maps/"
@@ -539,7 +514,7 @@ class settings_gui(Tk):
             action = self.env.action_space.sample()
             observation, reward, done,  _ = self.env.step(action)
             if done:
-                self.env.reset() #衝突ORゴールで環境リセット
+                self.env.reset()
         self.env.close()
         
     def save_config(self):
@@ -626,6 +601,5 @@ class settings_gui(Tk):
 
 if __name__ == "__main__":
     gui = settings_gui()
-    # rootの作成
     gui.title("SS2D SETTING GUI")
     gui.mainloop()
