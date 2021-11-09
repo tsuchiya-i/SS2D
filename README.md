@@ -13,9 +13,9 @@ Python version 3.6 or higher is recommended.
 ## Building RVO2 from source code
 Use the following command to install RVO2. ([Detail](https://github.com/sybrenstuvel/Python-RVO2))
 ```
+$ pip3 install Cython
 $ git clone https://github.com/sybrenstuvel/Python-RVO2.git
 $ cd Python-RVO2
-$ pip3 install -r requirements.txt
 $ python3 setup.py build
 $ python3 setup.py install
 ```
