@@ -45,7 +45,7 @@ $ pip3 install -e .
 ```
 
 ## Note
-If you get this error
+### error code:
 ```
 ModuleNotFoundError: No module named 'tkinter'
 ```
@@ -53,14 +53,13 @@ Then run this command
 ```
 sudo apt-get install python3-tk
 ```
-
-If you get this error
+### error code:
 ```
-ModuleNotFoundError: No module named 'tkinter'
+ModuleNotFoundError: No module named 'PIL.ImageTk'
 ```
 Then run this command
 ```
-sudo apt-get install python3-tk
+sudo apt install python3-pil.imagetk
 ```
 
 
