@@ -1,4 +1,4 @@
-# OpenAI Gym original environments
+# Simple robot Simulator 2D
 ## Python
 Python version 3.6 or higher is recommended.
 ## Requirement 
@@ -24,7 +24,12 @@ If you get a permission error, run this command.
 $ sudo python3 setup.py install
 ```
 
-
+## Building OpenAI Gym from source code
+```
+git clone https://github.com/openai/gym
+cd gym
+pip install -e .
+```
 
 ## Installing TensorFlow
 ```
