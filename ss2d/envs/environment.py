@@ -19,6 +19,7 @@ target_color = True
 class configClass():
     def __init__(self):
         self.thresh_map = None #image array(2D)
+        self.color_map = None
         self.start_points = [] #[[x1,y1],[x2,y2],,] 
         self.goal_points = []
         self.human_points = []
@@ -116,18 +117,16 @@ class SS2D_env(gym.Env):
     def reset(self):
         #self.set_image_map_old(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
         self.set_image_map()
+        self.robot_r_cell = int(self.robot_radius/self.xyreso) #[cell]
+        self.human_r_pix = int(self.human_radius/self.xyreso)
         
+        self.start_p_num = random.randint(0, len(self.waypoints)-1)
+        goal_p_num = random.randint(0, len(self.goal_points)-1)
         if (self.goal_points == self.waypoints).all():
-            self.start_p_num = random.randint(0, len(self.waypoints)-1)
-            goal_p_num = random.randint(0, len(self.waypoints)-1)
             while self.start_p_num==goal_p_num:
                 goal_p_num= random.randint(0, len(self.waypoints)-1)
-        else:
-            self.start_p_num = random.randint(0, len(self.waypoints)-1)
-            goal_p_num= random.randint(0, len(self.goal_points)-1)
-        self.start_p = self.waypoints[self.start_p_num]
         self.goal = self.goal_points[goal_p_num]
-
+        self.start = self.waypoints[self.start_p_num]
 
         self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
             math.radians(random.uniform(179, -179)),0,0])
@@ -274,11 +273,10 @@ class SS2D_env(gym.Env):
     def is_collision(self, show=False):
         x = int(self.state[0]/self.xyreso) #[cell]
         y = int(self.state[1]/self.xyreso) #[cell]
-        robot_radius_cell = int(self.robot_radius/self.xyreso) #[cell]
-        sx = self.max2(x-robot_radius_cell,0)
-        fx = self.min2(x+robot_radius_cell,self.map_width-1)
-        sy = self.max2((self.map_height-1)-(y+robot_radius_cell),0)
-        fy = self.min2((self.map_height-1)-(y-robot_radius_cell),self.map_height-1)
+        sx = self.max2(x-self.robot_r_cell,0)
+        fx = self.min2(x+self.robot_r_cell,self.map_width-1)
+        sy = self.max2((self.map_height-1)-(y+self.robot_r_cell),0)
+        fy = self.min2((self.map_height-1)-(y-self.robot_r_cell),self.map_height-1)
 
         obstacle = np.where(0<self.map[sy:fy,sx:fx])
         h_obstacle = np.where(2==self.map[sy:fy,sx:fx])
@@ -415,11 +413,10 @@ class SS2D_env(gym.Env):
             self.sim.setAgentPrefVelocity(self.human_state[i], velvec)
             human_pix_i = (self.map_height-1)-int(self.sim.getAgentPosition(self.human_state[i])[1]/self.xyreso)
             human_pix_j = int(self.sim.getAgentPosition(self.human_state[i])[0]/self.xyreso)
-            human_r_pix = int(self.human_radius/self.xyreso)
-            human_pix_si = self.max2(human_pix_i-human_r_pix,0)
-            human_pix_sj = self.max2(human_pix_j-human_r_pix,0)
-            human_pix_fi = self.min2(human_pix_i+human_r_pix,self.map_height-1)+1
-            human_pix_fj = self.min2(human_pix_j+human_r_pix,self.map_width-1)+1
+            human_pix_si = self.max2(human_pix_i-self.human_r_pix,0)
+            human_pix_sj = self.max2(human_pix_j-self.human_r_pix,0)
+            human_pix_fi = self.min2(human_pix_i+self.human_r_pix,self.map_height-1)+1
+            human_pix_fj = self.min2(human_pix_j+self.human_r_pix,self.map_width-1)+1
             self.map[human_pix_si:human_pix_fi,human_pix_sj:human_pix_fj] = 2
         self.sim.doStep()
 
@@ -449,8 +446,48 @@ class SS2D_env(gym.Env):
         target_vel = target_vector/np.linalg.norm(target_vector) * human_vel
 
         return (target_vel[0], target_vel[1])
+    
+    def render(self, mode='human', close=False):
+        if self.viewer is None:
+            max_s = max(self.config.color_map.shape[0],
+                    self.config.color_map.shape[1])
+            mag = 1#500/max_s
+            self.viewer = cv2.resize(self.config.color_map,
+                    dsize=None,fx=mag,fy=mag)
+            cv2.circle(self.viewer,(int(self.start[0]/self.xyreso),
+                (self.map_height-1)-int(self.start[1]/self.xyreso)),
+                self.robot_r_cell, (235,206,135), thickness=-1)
+            cv2.circle(self.viewer,(int(self.goal[0]/self.xyreso),
+                (self.map_height-1)-int(self.goal[1]/self.xyreso)),
+                self.robot_r_cell, (0,0,255), thickness=-1)
 
 
+        x = int(self.state[0]/self.xyreso) 
+        y = (self.map_height-1)-int(self.state[1]/self.xyreso)
+
+        disply = self.viewer.copy()
+        #####
+        robot = cv2.circle(disply, (x, y), self.robot_r_cell, (200,0,0), thickness=-1)
+        for lidar in self.lidar:
+            if lidar[3]==1:
+                color = (0,0,255)
+            elif lidar[0]==0:
+                color = (170,205,102)
+            else:
+                color = (208,224,64)
+            ######
+            scan = cv2.line(disply, (x, y), (lidar[4][1],lidar[4][0]), color, thickness=2)
+        for sim_id in self.human_state:
+            hx = int(self.sim.getAgentPosition(sim_id)[0]/self.xyreso)
+            hy = (self.map_height-1)-int(self.sim.getAgentPosition(sim_id)[1]/self.xyreso)
+            ######
+            human = cv2.circle(disply, (hx, hy), self.human_r_pix, (226,43,138), thickness=-1)
+
+        cv2.imshow('SS2D',disply)
+        cv2.waitKey(1)
+
+
+    """
     # レンダリング
     def render(self, mode='human', close=False):
         screen_width  = self.map_width
@@ -478,16 +515,15 @@ class SS2D_env(gym.Env):
                             self.viewer.add_geom(wall)
 
             # huaman_waypoints
-            """
-            for point in self.human_waypoints:
-                waypoint = rendering.make_circle(self.robot_radius/self.xyreso*scale_width)
-                self.waypointtrans = rendering.Transform()
-                waypoint.add_attr(self.waypointtrans)
-                waypoint.set_color(1.0, 0.5, 0.0)
-                self.waypointtrans.set_translation(point[0]/self.xyreso*scale_width, 
-                        point[1]/self.xyreso*scale_height)
-                self.viewer.add_geom(waypoint)
-            """
+            #for point in self.human_waypoints:
+            #    waypoint = rendering.make_circle(self.robot_radius/self.xyreso*scale_width)
+            #    self.waypointtrans = rendering.Transform()
+            #    waypoint.add_attr(self.waypointtrans)
+            #    waypoint.set_color(1.0, 0.5, 0.0)
+            #    self.waypointtrans.set_translation(point[0]/self.xyreso*scale_width, 
+            #            point[1]/self.xyreso*scale_height)
+            #    self.viewer.add_geom(waypoint)
+
             # waypoints
             for point in self.waypoints:
                 waypoint = rendering.make_circle(self.robot_radius/self.xyreso*scale_width)
@@ -568,11 +604,14 @@ class SS2D_env(gym.Env):
             
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
+    """
+    
 
     def close(self):
-        if self.viewer:
-            self.viewer.close()
+        if self.viewer is not None:
+            #self.viewer.close()
             self.viewer = None
+            cv2.destroyAllWindows()
 
     def max2(self,a,b):
         if a > b:

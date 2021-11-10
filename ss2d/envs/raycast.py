@@ -91,6 +91,7 @@ class raycast(object):
                     if self.grid_map[pix[0]][pix[1]] > 0:
                         xy = np.array([pix[1]*self.xyreso,(self.grid_height-pix[0]-1)*self.xyreso])
                         d = np.linalg.norm(xy-self.pose[:2])
+                        lidar_top_pix = pix
                         if self.grid_map[pix[0]][pix[1]] == 2:
                             human_TF = 1
                         else:
@@ -98,11 +99,12 @@ class raycast(object):
                         break
                 else:
                     d = self.max_range
+                    lidar_top_pix = [top_yp,top_xp]
                     human_TF = 0
                 x = d*math.cos(global_angle)
                 y = d*math.sin(global_angle)
 
-                raycast_data.append([angle, d, i, human_TF])#human_TF(0,1)
+                raycast_data.append([angle, d, i, human_TF, lidar_top_pix])#human_TF(0,1)
 
         raycast_data = np.array(raycast_data)
         return raycast_data
