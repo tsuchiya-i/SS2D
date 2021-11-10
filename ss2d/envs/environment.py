@@ -205,6 +205,7 @@ class SS2D_env(gym.Env):
     def set_image_map(self, scale=1):
         #self.map_height, width, self.map, self.original_map self.max_dist set
         img_thresh = self.config.thresh_map
+        self.viewer = None
         if img_thresh.shape[0] != self.map_height or img_thresh.shape[1] != self.map_width:
             self.map_height= img_thresh.shape[0] #[pix]
             self.map_width = img_thresh.shape[1] #[pix]
@@ -422,7 +423,6 @@ class SS2D_env(gym.Env):
             cv2.circle(self.viewer,(int(self.goal[0]/self.xyreso),
                 (self.map_height-1)-int(self.goal[1]/self.xyreso)),
                 self.robot_r_cell, (0,0,255), thickness=-1)
-
 
         x = int(self.state[0]/self.xyreso) 
         y = (self.map_height-1)-int(self.state[1]/self.xyreso)
