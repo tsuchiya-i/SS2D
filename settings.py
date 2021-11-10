@@ -20,12 +20,6 @@ import gym
 import ss2d
 from ss2d.envs.environment import configClass
 
-def image_thresh(file_name):
-    img = cv2.imread(file_name)
-    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    threshold = 240
-    ret, img_thresh = cv2.threshold(img_gray, threshold, 255, cv2.THRESH_BINARY)
-    return img_thresh
 
 class settings_gui(Tk):
     def __init__(self):
@@ -51,8 +45,11 @@ class settings_gui(Tk):
             self.init_human_option = 1
         else:
             self.init_human_option = 0
-
-        
+        try:
+            self.img_color = self.config.color_map
+        except:
+            messagebox.showwarning('Error', "Reload image file.")
+            
         #image set
         self.canvas_width = 600
         self.canvas_height = 400
@@ -376,7 +373,7 @@ class settings_gui(Tk):
                 initialdir = "./"+dir_name)
         if len(file_path):
             self.entry_map.set(file_path)
-            self.cv_thresh_image = image_thresh(file_path)
+            self.cv_thresh_image = self.image_thresh(file_path)
             self.img = Image.fromarray(self.cv_thresh_image)
             #self.img = Image.open(open(file_path, 'rb'))
             self.width, self.height = self.img.size
@@ -576,6 +573,7 @@ class settings_gui(Tk):
     def create_save_config_obj(self):
         save_data = configClass()
         save_data.thresh_map = self.cv_thresh_image #[[],[],,,]
+        save_data.color_map = self.img_color
         save_data.start_points = self.waypoints #(m,m)
         if self.goal_option.get()==0:
             save_data.goal_points = self.goal_points #####
@@ -658,6 +656,13 @@ class settings_gui(Tk):
             messagebox.showwarning('Error', "correct resolution value.")
             return False
         return True
+
+    def image_thresh(self, file_name):
+        self.img_color = cv2.imread(file_name)
+        img_gray = cv2.cvtColor(self.img_color, cv2.COLOR_BGR2GRAY)
+        threshold = 240
+        ret, img_thresh = cv2.threshold(img_gray, threshold, 255, cv2.THRESH_BINARY)
+        return img_thresh
 
 if __name__ == "__main__":
     gui = settings_gui()
