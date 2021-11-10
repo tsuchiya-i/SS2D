@@ -74,7 +74,6 @@ class settings_gui(Tk):
                     self.canvas_width/2,
                     self.canvas_height/2,
                     image=self.map_image)
-            self.oval_remove("wyp")
         else:
             self.map_canvas.create_text(self.canvas_width//2, self.canvas_height//2,
                     text="--no map--", font=("", "30", "bold"))
@@ -375,7 +374,6 @@ class settings_gui(Tk):
             self.entry_map.set(file_path)
             self.cv_thresh_image = self.image_thresh(file_path)
             self.img = Image.fromarray(self.cv_thresh_image)
-            #self.img = Image.open(open(file_path, 'rb'))
             self.width, self.height = self.img.size
             self.img = self.img.resize((self.canvas_width, self.canvas_height))
             self.map_image = ImageTk.PhotoImage(self.img)
@@ -628,9 +626,9 @@ class settings_gui(Tk):
             self.map_canvas.delete(tag_name+str(i))
     def oval_draw(self,reso,tag_name,color="cyan"):
         points = self.tag_name_select(tag_name)
-        rx = self.entry_radius.get()/(self.width/self.canvas_width*reso)
-        ry = self.entry_radius.get()/(self.height/self.canvas_height*reso)
         for i, xy in enumerate(points):
+            rx = self.entry_radius.get()/(self.width/self.canvas_width*reso)
+            ry = self.entry_radius.get()/(self.height/self.canvas_height*reso)
             x = xy[0]/(self.width/self.canvas_width*reso)
             y = self.canvas_height - xy[1]/(self.height/self.canvas_height*reso)
             self.map_canvas.create_oval(x-rx, y-ry, x+rx, y+ry,
