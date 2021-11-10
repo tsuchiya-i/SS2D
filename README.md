@@ -35,6 +35,16 @@ cd gym
 pip install -e .
 ```
 
+## Installing OpenCV
+(recommended)
+```
+$ sudo apt-get install python3-opencv
+```
+or
+```
+$ pip3 install opencv-python
+```
+
 ## Installing TensorFlow
 ```
 $ pip3 install tensorflow

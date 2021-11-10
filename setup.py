@@ -6,6 +6,6 @@ setup(
     description='Simple Simulator 2D',
     author='tsuchiya-i',
     author_email='',
-    install_requires=["opencv-python", "keras-rl2", "pillow"],
+    install_requires=["keras-rl2", "pillow"],
     packages=find_packages()
 )
