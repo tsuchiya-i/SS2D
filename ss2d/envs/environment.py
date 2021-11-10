@@ -104,7 +104,7 @@ class SS2D_env(gym.Env):
         self.waypoints = np.array(self.config.start_points)
         self.human_waypoints = np.array(self.config.human_points)
         self.goal_points = np.array(self.config.goal_points)
-        self.near_n = 2 #人の行き先の選択肢の数(現在地(停止)＋near_n)
+        self.near_n = 2 #Destination selection(current location+near_n)
         self.neighbors_vector_set(self.near_n,neighbors_id=0)
 
         #rendering
@@ -112,10 +112,7 @@ class SS2D_env(gym.Env):
         self.viewer = None
         self.wall_switch = self.config.wall_render
 
-    
-    # 状態を初期化し、初期の観測値を返す
     def reset(self):
-        #self.set_image_map_old(__file__[:-24]+'maps/nakano_11f_line025.png',self.xyreso)
         self.set_image_map()
         self.robot_r_cell = int(self.robot_radius/self.xyreso) #[cell]
         self.human_r_pix = int(self.human_radius/self.xyreso)
@@ -148,7 +145,6 @@ class SS2D_env(gym.Env):
         self.reset_count += 1
         return self.observation
 
-    # actionを実行し、結果を返す
     def step(self, action):
         self.step_count += 1
         self.world_time += self.dt
@@ -163,7 +159,6 @@ class SS2D_env(gym.Env):
 
         return self.observation, reward, self.done, {}
     
-    # 観測結果を表示
     def observe(self):
         # Raycasting
         Raycast = raycast(self.state[0:3], self.map, self.map_height,self.map_width, 
@@ -185,7 +180,6 @@ class SS2D_env(gym.Env):
 
         return observation#lidar,human,dist,angle_dist(clock wise)
 
-    # 報酬値を返す
     def reward(self, action):
         if self.is_goal():
             rwd = 25 
@@ -222,34 +216,6 @@ class SS2D_env(gym.Env):
         self.xyreso = self.config.reso
         self.max_dist = (self.map_height+self.map_width)*self.xyreso
 
-    def set_image_map_old(self, map_filename, xyreso, scale=1):
-        #self.map_height, width, self.map, self.original_map self.max_dist set
-        im = cv2.imread(map_filename)
-        
-        if scale != 1:
-            orgHeight, orgWidth = im.shape[:2]
-            size = (int(orgWidth*scale), int(orgHeight*scale))
-            im = cv2.resize(im, size)
-        
-        im_gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-        threshold = 25
-        # 二値化(閾値100を超えた画素を255白にする。)
-        ret, img_thresh = cv2.threshold(im_gray, threshold, 255, cv2.THRESH_BINARY)
-        
-        if img_thresh.shape[0] != self.map_height or img_thresh.shape[1] != self.map_width:
-            self.map_height= img_thresh.shape[0] #[pix]
-            self.map_width = img_thresh.shape[1] #[pix]
-            if self.viewer != None:
-                self.viewer.close()
-                self.viewer = None
-
-        self.map = np.where(img_thresh>100, 0, 1)
-        self.original_map = np.where(img_thresh>100, 0, 1)
-
-        self.xyreso = xyreso
-        self.max_dist = (self.map_height+self.map_width)*xyreso
-
-    # ゴールに到達したかを判定
     def is_goal(self, show=False):
         if math.sqrt( (self.state[0]-self.goal[0])**2 + (self.state[1]-self.goal[1])**2 ) <= self.robot_radius*3:
             if show:
@@ -258,7 +224,6 @@ class SS2D_env(gym.Env):
         else:
             return False
 
-    # 移動可能範囲内に存在するか
     def is_movable(self, show=False):
         x = int(self.state[0]/self.xyreso)
         y = int(self.state[1]/self.xyreso)
@@ -269,7 +234,6 @@ class SS2D_env(gym.Env):
                 print("(%f, %f) is not movable area" % (x*self.xyreso, y*self.xyreso))
             return False
 
-    # 衝突判定
     def is_collision(self, show=False):
         x = int(self.state[0]/self.xyreso) #[cell]
         y = int(self.state[1]/self.xyreso) #[cell]
@@ -293,7 +257,6 @@ class SS2D_env(gym.Env):
         self.collision_factor = 0
         return False
 
-    # 終端状態か確認
     def is_done(self, show=False):
         if self.is_collision(show):
             return True
@@ -324,10 +287,10 @@ class SS2D_env(gym.Env):
         self.human_state = []
         self.human_vel = []
         rand_num_his = []
-        #マップ上の人の位置ピクセル格納用
+        #human pix on map
         self.target_position = [[-1,-1]] * self.human_n
         
-        #waypoint上にランダムにnum人の人をスポーン
+        #spawn on waypoints
         if (self.human_waypoints == self.waypoints).all():
             while len(rand_num_his) < self.human_n:
                 rand_num = random.randint(0, len(self.waypoints)-1)
@@ -354,7 +317,7 @@ class SS2D_env(gym.Env):
             self.human_waypoints = np.array([[8.8, 19.0], [40.4, 18.2], [40.7, 16.0], [47.7, 16.1], [63.2, 16.0], [63.2, 10.8], [47.6, 10.8], [40.9, 10.6], [40.5, 8.], [8.8, 8.1]])
 
 
-    def neighbors_vector_set(self,n=2,neighbors_id=0): #n個の近傍ウェイポイントセット
+    def neighbors_vector_set(self,n=2,neighbors_id=0): #n near points
         if neighbors_id == 0:
             self.neighbors_array = []
             for point in self.human_waypoints:
@@ -362,7 +325,7 @@ class SS2D_env(gym.Env):
                 sort_index = np.argsort(dist_array)
                 self.neighbors_array.append(sort_index[:n+1])
         elif neighbors_id == 1:
-            #１つめはその場のポイント番号
+            # same points and near points
             self.neighbors_array = np.array([[0,1,9],[1,2,0],[2,3,1,7],[3,4,2,6],[4,5,3],[5,6,4],[6,7,5,3],[7,8,6,2],[8,9,7],[9,0,8]])
 
     def rvomap_set(self,rvo_map_id=0):
@@ -420,18 +383,17 @@ class SS2D_env(gym.Env):
             self.map[human_pix_si:human_pix_fi,human_pix_sj:human_pix_fj] = 2
         self.sim.doStep()
 
-    def set_rvo_velocity(self, i, human_vel):#iは人ナンバー
+    def set_rvo_velocity(self, i, human_vel):
         now_position = np.array(self.sim.getAgentPosition(self.human_state[i]))
-        #最近傍ウェイポイント
         if self.target_position[i][0] == -1:
-            for j in range(len(self.human_waypoints)):#ウェイポイント全探索
+            for j in range(len(self.human_waypoints)):#search all points
                 point_dist = np.linalg.norm(self.human_waypoints[j]-now_position)
                 if j==0 or nearest_dist > point_dist:
                     nearest_dist = point_dist
                     min_j = j
             self.target_position[i] = self.human_waypoints[min_j]
         if np.linalg.norm(self.target_position[i] - now_position) < self.human_radius:
-            for j in range(len(self.human_waypoints)):#ウェイポイント全探索
+            for j in range(len(self.human_waypoints)):#search all points
                 point_dist = np.linalg.norm(self.human_waypoints[j]-now_position)
                 if j==0 or nearest_dist > point_dist:
                     nearest_dist = point_dist
@@ -485,127 +447,6 @@ class SS2D_env(gym.Env):
 
         cv2.imshow('SS2D',disply)
         cv2.waitKey(1)
-
-
-    """
-    # レンダリング
-    def render(self, mode='human', close=False):
-        screen_width  = self.map_width
-        screen_height = self.map_height
-        scale_width = screen_width / float(self.map_width) 
-        scale_height = screen_height / float(self.map_height)
-
-        from gym.envs.classic_control import rendering
-        if self.viewer is None:
-            self.viewer = rendering.Viewer(screen_width, screen_height)
-            # wall
-            if self.wall_switch: 
-                for i in range(screen_height):
-                    for j in range(screen_width):
-    
-                        if self.original_map[i][j] == 1:
-                            wall = rendering.make_capsule(1, 1)
-                            self.walltrans = rendering.Transform()
-                            wall.add_attr(self.walltrans)
-                            wall.set_color(0.2, 0.4, 1.0)
-                            self.walltrans.set_rotation(0)
-                            self.viewer.add_geom(wall)
-                            self.walltrans.set_translation(j, screen_height-i)
-                            self.walltrans.set_rotation(0)
-                            self.viewer.add_geom(wall)
-
-            # huaman_waypoints
-            #for point in self.human_waypoints:
-            #    waypoint = rendering.make_circle(self.robot_radius/self.xyreso*scale_width)
-            #    self.waypointtrans = rendering.Transform()
-            #    waypoint.add_attr(self.waypointtrans)
-            #    waypoint.set_color(1.0, 0.5, 0.0)
-            #    self.waypointtrans.set_translation(point[0]/self.xyreso*scale_width, 
-            #            point[1]/self.xyreso*scale_height)
-            #    self.viewer.add_geom(waypoint)
-
-            # waypoints
-            for point in self.waypoints:
-                waypoint = rendering.make_circle(self.robot_radius/self.xyreso*scale_width)
-                self.waypointtrans = rendering.Transform()
-                waypoint.add_attr(self.waypointtrans)
-                waypoint.set_color(0.8, 0.8, 0.8)
-                self.waypointtrans.set_translation(point[0]/self.xyreso*scale_width, 
-                        point[1]/self.xyreso*scale_height)
-                self.viewer.add_geom(waypoint)
-
-            # robot pose
-            self.robottrans = rendering.Transform()
-            orientation = rendering.make_capsule(self.robot_radius/self.xyreso*scale_width, 2.0)
-            self.orientationtrans = rendering.Transform()
-
-            # start
-            start = rendering.make_circle(self.robot_radius*2/self.xyreso*scale_width)
-            self.starttrans = rendering.Transform()
-            start.add_attr(self.starttrans)
-            start.set_color(0.7, 0.7, 1.0)
-            #self.viewer.add_geom(start)
-            # goal
-            goal = rendering.make_circle(self.robot_radius*2/self.xyreso*scale_width)
-            self.goaltrans = rendering.Transform()
-            goal.add_attr(self.goaltrans)
-            goal.set_color(1.0, 0.0, 0.0)
-            self.viewer.add_geom(goal)
-
-        self.starttrans.set_translation(self.start_p[0]/self.xyreso*scale_width, self.start_p[1]/self.xyreso*scale_height)
-        self.goaltrans.set_translation(self.goal[0]/self.xyreso*scale_width, self.goal[1]/self.xyreso*scale_height)
-
-        #robot
-        robot_x = self.state[0]/self.xyreso * scale_width
-        robot_y = self.state[1]/self.xyreso * scale_height
-        self.robottrans.set_translation(robot_x, robot_y)
-        self.orientationtrans.set_translation(robot_x, robot_y)
-        self.orientationtrans.set_rotation(self.state[2])
-        # robot
-        robot = rendering.make_circle(self.human_radius/self.xyreso*scale_width)
-        self.robottrans = rendering.Transform()
-        robot.add_attr(self.robottrans)
-        robot.set_color(0.0, 0.0, 1.0)
-        self.robottrans.set_translation(robot_x, robot_y)
-        self.viewer.add_onetime(robot)
-
-        # human
-        for i in range(len(self.human_state)):
-            human = rendering.make_circle(self.human_radius/self.xyreso*scale_width)
-            self.humantrans = rendering.Transform()
-            human.add_attr(self.humantrans)
-            human.set_color(0.2, 0.8, 0.2)
-            
-            target = rendering.make_circle(self.human_radius/self.xyreso*scale_width)
-            self.targettrans = rendering.Transform()
-            target.add_attr(self.targettrans)
-            target.set_color(0.1,1.0,0.1)
-            
-            self.humantrans.set_translation(self.sim.getAgentPosition(self.human_state[i])[0]/self.xyreso*scale_width, self.sim.getAgentPosition(self.human_state[i])[1]/self.xyreso*scale_height)
-            self.targettrans.set_translation(self.target_position[i][0]/self.xyreso*scale_width, self.target_position[i][1]/self.xyreso*scale_height)
-            self.viewer.add_onetime(human)
-            if target_color:
-                pass#self.viewer.add_onetime(target)
-        # lidar
-        if self.vis_lidar:
-            for lidar in self.lidar:
-               scan = rendering.make_capsule(lidar[1]/self.xyreso*scale_width, 2.0)
-               self.scantrans= rendering.Transform()
-               scan.add_attr(self.scantrans)
-               if lidar[3]==1:
-                   scan.set_color(1.0, 0.5, 0.5)#赤
-               elif lidar[0]==0:#正面
-                   scan.set_color(0.1, 1.0, 0.1)#緑
-               else:
-                   scan.set_color(0.0, 1.0, 1.0)
-               self.scantrans.set_translation(robot_x, robot_y)
-               self.scantrans.set_rotation(self.state[2]+lidar[0])
-               self.viewer.add_onetime(scan)
-            
-
-        return self.viewer.render(return_rgb_array = mode=='rgb_array')
-    """
-    
 
     def close(self):
         if self.viewer is not None:
