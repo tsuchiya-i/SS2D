@@ -61,21 +61,23 @@ def main():
     random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.3)
     
     agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
-                      memory=memory, nb_steps_warmup_critic=100, nb_steps_warmup_actor=100,
+                      memory=memory, nb_steps_warmup_critic=10000, nb_steps_warmup_actor=10000,
                       random_process=random_process, gamma=.99, target_model_update=1e-3)
     agent.compile(Adam(lr=.001, clipnorm=1.), metrics=['mae'])
     tensorboard_callback = TensorBoard(log_dir="logs", histogram_freq=1)
     
     if os.path.exists(check_weight_path):
         agent.load_weights(save_weight_path)
-        print("find weights-file")
+        print("###########################")
+        print("#####find weights-file#####")
+        print("###########################")
     else:
         print("not found weights-file")
 
     # Okay, now it's time to learn something! We visualize the training here for show, but this
     # slows down training quite a lot. You can always safely abort the training prematurely using
     # Ctrl + C.
-    nb_steps_ = 50000000
+    nb_steps_ = 5000000000
     nb_max_episode_steps_ = 1500
     
     train_history = agent.fit(env, nb_steps=nb_steps_, visualize=True, verbose=1, nb_max_episode_steps=nb_max_episode_steps_)
