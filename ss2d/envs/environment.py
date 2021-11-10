@@ -414,22 +414,23 @@ class SS2D_env(gym.Env):
         if self.viewer is None:
             max_s = max(self.config.color_map.shape[0],
                     self.config.color_map.shape[1])
-            mag = 1#500/max_s
+            self.mag = 800/max_s
+            self.d_robot_r = int(self.robot_radius/self.xyreso*self.mag)
+            self.d_human_r = int(self.human_radius/self.xyreso*self.mag)
             self.viewer = cv2.resize(self.config.color_map,
-                    dsize=None,fx=mag,fy=mag)
-            cv2.circle(self.viewer,(int(self.start[0]/self.xyreso),
-                (self.map_height-1)-int(self.start[1]/self.xyreso)),
-                self.robot_r_cell, (235,206,135), thickness=-1)
-            cv2.circle(self.viewer,(int(self.goal[0]/self.xyreso),
-                (self.map_height-1)-int(self.goal[1]/self.xyreso)),
-                self.robot_r_cell, (0,0,255), thickness=-1)
+                    dsize=None,fx=self.mag,fy=self.mag)
+            cv2.circle(self.viewer,(int(self.start[0]/self.xyreso*self.mag),
+                int(((self.map_height-1)-self.start[1]/self.xyreso)*self.mag)),
+                self.d_robot_r, (235,206,135), thickness=-1)
+            cv2.circle(self.viewer,(int(self.goal[0]/self.xyreso*self.mag),
+                int(((self.map_height-1)-self.goal[1]/self.xyreso)*self.mag)),
+                self.d_robot_r, (0,0,255), thickness=-1)
 
-        x = int(self.state[0]/self.xyreso) 
-        y = (self.map_height-1)-int(self.state[1]/self.xyreso)
+        x = int(self.state[0]/self.xyreso*self.mag) 
+        y = int(((self.map_height-1)-self.state[1]/self.xyreso)*self.mag)
 
         disply = self.viewer.copy()
-        #####
-        robot = cv2.circle(disply, (x, y), self.robot_r_cell, (200,0,0), thickness=-1)
+        robot = cv2.circle(disply, (x, y), self.d_robot_r, (200,0,0), thickness=-1)
         for lidar in self.lidar:
             if lidar[3]==1:
                 color = (0,0,255)
@@ -437,12 +438,10 @@ class SS2D_env(gym.Env):
                 color = (170,205,102)
             else:
                 color = (208,224,64)
-            ######
-            scan = cv2.line(disply, (x, y), (lidar[4][1],lidar[4][0]), color, thickness=2)
+            scan = cv2.line(disply, (x, y),(int(lidar[4][1]*self.mag),int(lidar[4][0]*self.mag)), color, thickness=2)
         for sim_id in self.human_state:
-            hx = int(self.sim.getAgentPosition(sim_id)[0]/self.xyreso)
-            hy = (self.map_height-1)-int(self.sim.getAgentPosition(sim_id)[1]/self.xyreso)
-            ######
+            hx = int(self.sim.getAgentPosition(sim_id)[0]/self.xyreso*self.mag)
+            hy = int(((self.map_height-1)-self.sim.getAgentPosition(sim_id)[1]/self.xyreso)*self.mag)
             human = cv2.circle(disply, (hx, hy), self.human_r_pix, (226,43,138), thickness=-1)
 
         cv2.imshow('SS2D',disply)
