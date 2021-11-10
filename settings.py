@@ -1,7 +1,9 @@
 import pickle
 import numpy as np
 import yaml
-import os,sys,io
+import os
+import sys
+import io
 import threading
 import json
 
@@ -529,6 +531,11 @@ class settings_gui(Tk):
         self.map_canvas.delete("new_wyp"+str(len(self.nwaypoints)))
 
     def run(self):
+        test_config = self.create_save_config_obj()
+        if test_config is None:
+            return False
+        with open("./ss2d/envs/test_config.bin", mode='wb') as f:
+            pickle.dump(test_config, f)
         thread = threading.Thread(target=self.run_simulator)
         thread.start()
         self.button_run["state"] = DISABLED
@@ -552,6 +559,21 @@ class settings_gui(Tk):
         self.env.close()
         
     def save_config(self):
+        save_data = self.create_save_config_obj()
+        if save_data is None:
+            return False
+        with io.StringIO() as f:
+            sys.stdout = f
+            print(vars(save_data))
+            text = f.getvalue().replace(", '",",\n'")
+            text = text.replace(", [",",\n[")
+            sys.stdout = sys.__stdout__
+
+        with open("./ss2d/envs/config.bin", mode='wb') as f:
+            pickle.dump(save_data, f)
+        self.insert_disp_text(text+"Setting Saved.\n\n>")
+
+    def create_save_config_obj(self):
         save_data = configClass()
         save_data.thresh_map = self.cv_thresh_image #[[],[],,,]
         save_data.start_points = self.waypoints #(m,m)
@@ -574,17 +596,22 @@ class settings_gui(Tk):
         save_data.human_detect = self.detect_TF.get() #bool
         save_data.wall_render = self.wall_TF.get() #bool
         save_data.console_output = self.output_TF.get() #bool
-        
-        with io.StringIO() as f:
-            sys.stdout = f
-            print(vars(save_data))
-            text = f.getvalue().replace(", '",",\n'")
-            text = text.replace(", [",",\n[")
-            sys.stdout = sys.__stdout__
-
-        with open("./ss2d/envs/config.bin", mode='wb') as f:
-            pickle.dump(save_data, f)
-        self.insert_disp_text(text+"Setting Saved.\n\n>")
+        if save_data.thresh_map is None:
+            messagebox.showwarning('Error', "Load map image.")
+            return None
+        if not len(save_data.start_points):
+            messagebox.showwarning('Error', "Load start points.")
+            return None
+        if not len(save_data.goal_points):
+            messagebox.showwarning('Error', "Load goal points.")
+            return None
+        if len(save_data.goal_points)<=1 and save_data.goal_points==save_data.start_points:
+            messagebox.showwarning('Error', "Goal and start are the same.")
+            return None
+        if len(save_data.human_points) < save_data.human_n:
+            messagebox.showwarning('Error', "Correct human points.")
+            return None
+        return save_data
         
     def delete_disp_text(self,start,end):
         self.scr_disp["state"] = NORMAL
