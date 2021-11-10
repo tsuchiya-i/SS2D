@@ -28,7 +28,6 @@ class settings_gui(Tk):
                 self.config = pickle.load(f)
         else:
             self.config = configClass()
-
         super().__init__()
         adjust_row = 10
         self.nwaypoints = []
@@ -79,9 +78,6 @@ class settings_gui(Tk):
         else:
             self.map_canvas.create_text(self.canvas_width//2, self.canvas_height//2,
                     text="--no map--", font=("", "30", "bold"))
-        self.oval_draw(self.reso,"wyp")
-        self.oval_draw(self.reso,"goal_wyp","red")
-        self.oval_draw(self.reso,"human_wyp","orange")
 
     
         # Frame input map reso
@@ -353,6 +349,10 @@ class settings_gui(Tk):
                 width=35)
         self.button_save_config.pack(side=TOP)
 
+        self.oval_draw(self.reso,"wyp")
+        self.oval_draw(self.reso,"goal_wyp","red")
+        self.oval_draw(self.reso,"human_wyp","orange")
+
         ###################################
         ####### Frame display text ########
         ###################################
@@ -465,8 +465,9 @@ class settings_gui(Tk):
         click_x = round(click_x,3)
         click_y = (self.canvas_height-event.y)*self.height/self.canvas_height*reso
         click_y = round(click_y,3)
-        r = 2
-        self.map_canvas.create_oval(event.x-r, event.y-r, event.x+r, event.y+r,
+        rx = self.entry_radius.get()/(self.width/self.canvas_width*reso)
+        ry = self.entry_radius.get()/(self.height/self.canvas_height*reso)
+        self.map_canvas.create_oval(event.x-rx, event.y-ry, event.x+rx, event.y+ry,
                 fill="cyan", tag="new_wyp"+str(len(self.nwaypoints)))
         self.nwaypoints.append([click_x,click_y])
         self.insert_disp_text(str([click_x,click_y])+"\n")
@@ -627,11 +628,12 @@ class settings_gui(Tk):
             self.map_canvas.delete(tag_name+str(i))
     def oval_draw(self,reso,tag_name,color="cyan"):
         points = self.tag_name_select(tag_name)
-        r = 2
+        rx = self.entry_radius.get()/(self.width/self.canvas_width*reso)
+        ry = self.entry_radius.get()/(self.height/self.canvas_height*reso)
         for i, xy in enumerate(points):
             x = xy[0]/(self.width/self.canvas_width*reso)
             y = self.canvas_height - xy[1]/(self.height/self.canvas_height*reso)
-            self.map_canvas.create_oval(x-r, y-r, x+r, y+r,
+            self.map_canvas.create_oval(x-rx, y-ry, x+rx, y+ry,
                     fill=color, tag=tag_name+str(i))
     def tag_name_select(self,tag_name):
         if tag_name == "new_wyp":
