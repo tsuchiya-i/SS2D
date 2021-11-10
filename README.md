@@ -58,7 +58,7 @@ $ cd SS2D
 $ pip3 install -e .
 ```
 # Demo
-![demo](https://github.com/tsuchiya-i/SS2D/blob/main/navigation_sample.gif)
+![demo](https://github.com/tsuchiya-i/SS2D/blob/main/appendix/navigation_sample.gif)
 
 # Note
 #### Error code1:
