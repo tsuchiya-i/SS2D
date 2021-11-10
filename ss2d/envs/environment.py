@@ -3,6 +3,7 @@ import numpy as np
 import math
 import random
 import pickle
+import os
 
 import cv2
 import gym
@@ -36,9 +37,15 @@ class configClass():
 
 class SS2D_env(gym.Env):
     def __init__(self):
-        with open(__file__.replace("environment.py","")+"config.bin", mode='rb') as f:
-            self.config = pickle.load(f)
-            print("----Load config data----")
+        if os.path.exists(__file__.replace("environment.py","")+"test_config.bin"):
+            with open(__file__.replace("environment.py","")+"test_config.bin", mode='rb') as f:
+                self.config = pickle.load(f)
+                print("----test config data----")
+            os.remove(__file__.replace("environment.py","")+"test_config.bin")
+        else:
+            with open(__file__.replace("environment.py","")+"config.bin", mode='rb') as f:
+                self.config = pickle.load(f)
+                print("----Load config data----")
 
         self.show = self.config.console_output #bool
         # world param
@@ -323,14 +330,25 @@ class SS2D_env(gym.Env):
         self.target_position = [[-1,-1]] * self.human_n
         
         #waypoint上にランダムにnum人の人をスポーン
-        while len(rand_num_his) < self.human_n:
-            rand_num = random.randint(0, len(self.waypoints)-1)
-            if (not rand_num in rand_num_his) and (rand_num != self.start_p_num or not (self.human_waypoints == self.waypoints).all()):
-                rand_num_his.append(rand_num)
-                self.hstart_p = (self.waypoints[rand_num])
-                self.human_state.append(self.sim.addAgent((self.hstart_p[0], self.hstart_p[1])))
-                human_vel = random.uniform(self.human_vel_min, self.human_vel_max)
-                self.human_vel.append(human_vel)
+        if (self.human_waypoints == self.waypoints).all():
+            while len(rand_num_his) < self.human_n:
+                rand_num = random.randint(0, len(self.waypoints)-1)
+                if (not rand_num in rand_num_his) and (rand_num != self.start_p_num):
+                    rand_num_his.append(rand_num)
+                    self.hstart_p = (self.waypoints[rand_num])
+                    self.human_state.append(self.sim.addAgent((self.hstart_p[0], self.hstart_p[1])))
+                    human_vel = random.uniform(self.human_vel_min, self.human_vel_max)
+                    self.human_vel.append(human_vel)
+        else:
+            while len(rand_num_his) < self.human_n:
+                rand_num = random.randint(0, len(self.human_waypoints)-1)
+                if not rand_num in rand_num_his:
+                    rand_num_his.append(rand_num)
+                    self.hstart_p = (self.human_waypoints[rand_num])
+                    self.human_state.append(self.sim.addAgent((self.hstart_p[0], self.hstart_p[1])))
+                    human_vel = random.uniform(self.human_vel_min, self.human_vel_max)
+                    self.human_vel.append(human_vel)
+
 
     def way_point_set(self,waypoints_id=0):
         if waypoints_id == 0:
