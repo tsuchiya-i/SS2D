@@ -9,7 +9,8 @@
 - [Python-RVO2](https://github.com/sybrenstuvel/Python-RVO2)
 - tensorflow
 - Keras-rl2
-動作には上記ライブラリが必須です。下のインストール・ビルド方法を参考に進めてください。
+
+ 動作には上記ライブラリが必須です。下のインストール・ビルド方法を参考に進めてください。
 ## RVO2をビルド&インストール
 下記コマンドでRVO2をインストール([詳細](https://github.com/sybrenstuvel/Python-RVO2))
 ```
