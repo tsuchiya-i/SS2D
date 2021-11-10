@@ -1,4 +1,5 @@
 # Simple robot Simulator 2D
+日本語[README.md](https://github.com/tsuchiya-i/SS2D/blob/main/appendix/README.md)
 ## Python
 Python version 3.6 or higher is recommended.
 ## Requirement 
