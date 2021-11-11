@@ -29,7 +29,7 @@ class settings_gui(Tk):
         else:
             self.config = configClass()
         super().__init__()
-        adjust_row = 10
+        adjust_row = 5
         self.nwaypoints = []
         #save parameter
         self.waypoints = self.config.start_points
@@ -51,7 +51,7 @@ class settings_gui(Tk):
             
         #image set
         self.canvas_width = 600
-        self.canvas_height = 400
+        self.canvas_height = 380
         self.width, self.height = (0,0)
 
         self.map_canvas = Canvas(
@@ -60,7 +60,7 @@ class settings_gui(Tk):
             height=self.canvas_height,
             bg="gray"
         )
-        self.map_canvas.grid(rowspan=adjust_row, row=1, column=0, sticky=W)
+        self.map_canvas.grid(rowspan=adjust_row, row=1, column=0, sticky=W+N)
         self.map_canvas.unbind('<Button-1>')
         self.map_canvas_obj= None
 
@@ -78,9 +78,8 @@ class settings_gui(Tk):
             self.map_canvas.create_text(self.canvas_width//2, self.canvas_height//2,
                     text="--no map--", font=("", "30", "bold"))
 
-    
         # Frame input map reso
-        self.frame_reso = ttk.Frame(padding=5)
+        self.frame_reso = ttk.Frame(padding=0)
         self.frame_reso.grid(row=0, column=0, sticky=W+E)
         self.label_reso_str = ttk.Label(self.frame_reso, text="map resolution:")
         self.label_reso_str.pack(side=LEFT)
@@ -105,95 +104,85 @@ class settings_gui(Tk):
 
         # Frame open map
         adjust_row += 1
-        self.frame_map = ttk.Frame(padding=5)
-        self.frame_map.grid(row=adjust_row, column=0, sticky=W+E)
-        self.label_map = ttk.Label(self.frame_map, text="map image file:")
-        self.label_map.pack(side=LEFT)
-        self.button_map = ttk.Button(self.frame_map,
+        self.frame_left = ttk.Frame(padding=5)
+        self.frame_left.grid(rowspan=5,row=adjust_row, column=0, sticky=W+E)
+        self.label_map = ttk.Label(self.frame_left, text="map image file:")
+        self.label_map.grid(row=0, column=0)
+        self.button_map = ttk.Button(self.frame_left,
                 text="Browse...",
                 command=self.imagefile_dialog)
-        self.button_map.pack(side=RIGHT)
+        self.button_map.grid(row=0, column=5)
         self.entry_map = StringVar()
-        self.entry_map_obj = ttk.Entry(self.frame_map,
+        self.entry_map_obj = ttk.Entry(self.frame_left,
                 textvariable=self.entry_map,
                 width=45)
-        self.entry_map_obj.pack(padx=5,side=RIGHT)
+        self.entry_map_obj.grid(columnspan=4, row=0, column=1)
     
-        # Frame open start points
-        adjust_row += 1
-        self.frame_wayp = ttk.Frame(padding=5)
-        self.frame_wayp.grid(row=adjust_row, column=0, sticky=W+E)
-        self.label_wayp = ttk.Label(self.frame_wayp, text="start points file:")
-        self.label_wayp.pack(side=LEFT)
-        self.button_wayp = ttk.Button(self.frame_wayp,
+        # open start points
+        grow = 1
+        self.label_wayp = ttk.Label(self.frame_left, text="start points file:")
+        self.label_wayp.grid(row=grow, column=0)
+        self.button_wayp = ttk.Button(self.frame_left,
                 text="Browse...",
                 command=self.waypointsfile_dialog)
-        self.button_wayp.pack(side=RIGHT)
+        self.button_wayp.grid(row=grow, column=5)
         self.entry_wayp = StringVar()
-        self.entry_wayp_obj = ttk.Entry(self.frame_wayp,
+        self.entry_wayp_obj = ttk.Entry(self.frame_left,
                 textvariable=self.entry_wayp,
                 width=45)
-        self.entry_wayp_obj.pack(padx=5,side=RIGHT)
+        self.entry_wayp_obj.grid(columnspan=4,row=grow, column=1)
 
-        # Frame open goal point
-        adjust_row += 1
-        self.frame_gp = ttk.Frame(padding=5)
-        self.frame_gp.grid(row=adjust_row, column=0, sticky=W+E)
-        self.label_gp = ttk.Label(self.frame_gp, text="goal points file:")
-        self.label_gp.pack(side=LEFT)
-        self.button_gp = ttk.Button(self.frame_gp,
+        # open goal point
+        grow += 1
+        self.label_gp = ttk.Label(self.frame_left, text="goal points file:")
+        self.label_gp.grid(row=grow, column=0)
+        self.button_gp = ttk.Button(self.frame_left,
                 text="Browse...",
                 command=self.goal_pointsfile_dialog)
-        self.button_gp.pack(side=RIGHT)
+        self.button_gp.grid(row=grow, column=5)
         self.entry_gp = StringVar()
-        self.entry_gp_obj = ttk.Entry(self.frame_gp,
+        self.entry_gp_obj = ttk.Entry(self.frame_left,
                 textvariable=self.entry_gp,
                 width=45)
-        self.entry_gp_obj.pack(padx=5,side=RIGHT)
+        self.entry_gp_obj.grid(columnspan=4, row=grow, column=1)
 
-        # Frame open human point
-        adjust_row += 1
-        self.frame_hp = ttk.Frame(padding=5)
-        self.frame_hp.grid(row=adjust_row, column=0, sticky=W+E)
-        self.label_hp = ttk.Label(self.frame_hp, text="human points file:")
-        self.label_hp.pack(side=LEFT)
-        self.button_hp = ttk.Button(self.frame_hp,
+        # open human point
+        grow += 1
+        self.label_hp = ttk.Label(self.frame_left, text="human points file:")
+        self.label_hp.grid(row=grow, column=0)
+        self.button_hp = ttk.Button(self.frame_left,
                 text="Browse...",
                 command=self.human_pointsfile_dialog)
-        self.button_hp.pack(side=RIGHT)
+        self.button_hp.grid(row=grow, column=5)
         self.entry_hp = StringVar()
-        self.entry_hp_obj = ttk.Entry(self.frame_hp,
+        self.entry_hp_obj = ttk.Entry(self.frame_left,
                 textvariable=self.entry_hp,
                 width=45)
-        self.entry_hp_obj.pack(padx=5,side=RIGHT)
+        self.entry_hp_obj.grid(columnspan=4, row=grow, column=1)
 
-        # Frame new waypoint create
-        adjust_row += 1
-        self.frame_nwyp = ttk.Frame(padding=5)
-        self.frame_nwyp.grid(row=adjust_row, column=0, sticky=W+E)
-        self.label_nwyp = ttk.Label(self.frame_nwyp, text="new waypoints name:")
-        self.label_nwyp.pack(side=LEFT)
-        self.button_save = ttk.Button(self.frame_nwyp,
+        # new waypoint create
+        grow += 1
+        self.label_nwyp = ttk.Label(self.frame_left, text="new waypoints name:")
+        self.label_nwyp.grid(row=grow, column=0)
+        self.button_save = ttk.Button(self.frame_left,
                 text="save",
                 command=self.save)
         self.button_save['state'] = DISABLED
-        self.button_save.pack(padx = 3,side=RIGHT)
-        self.button_back = ttk.Button(self.frame_nwyp,
+        self.button_save.grid(row=grow, column=5)
+        self.button_back = ttk.Button(self.frame_left,
                 text="back",
                 command=self.back)
         self.button_back['state'] = DISABLED
-        self.button_back.pack(padx = 3,side=RIGHT)
-        self.button_create = ttk.Button(self.frame_nwyp,
+        self.button_back.grid(row=grow, column=3)
+        self.button_create = ttk.Button(self.frame_left,
                 text="create",
                 command=self.create)
-        self.button_create.pack(padx = 5,side=RIGHT)
+        self.button_create.grid(row=grow, column=2)
         self.entry_nwyp = StringVar()
-        self.entry_nwyp_obj = ttk.Entry(self.frame_nwyp,
+        self.entry_nwyp_obj = ttk.Entry(self.frame_left,
                 textvariable=self.entry_nwyp,
                 width=41-len(self.label_nwyp.cget("text")))
-        self.entry_nwyp_obj.pack(side=RIGHT)
-
-
+        self.entry_nwyp_obj.grid(row=grow, column=1)
 
         #######################################
         ############ RIGHT ZONE ###############
@@ -201,9 +190,9 @@ class settings_gui(Tk):
         # world param
         R_adjust_row = 0
         width = 300
-        self.frame_world = ttk.Labelframe(padding=5, width=width, height=50, text="World parameter")
+        self.frame_world = ttk.Labelframe(padding=0, width=width, height=60, text="World parameter")
         self.frame_world.propagate(False) 
-        self.frame_world.grid(row=R_adjust_row, column=1, sticky=W)
+        self.frame_world.grid(rowspan=1, row=R_adjust_row, column=1, sticky=W)
         self.label_dt = ttk.Label(self.frame_world, text=" dt: ")
         self.label_dt.pack(side=LEFT)
         self.entry_dt = DoubleVar(value=self.config.world_dt)
@@ -279,9 +268,10 @@ class settings_gui(Tk):
         self.label_.grid(row=5, column=2, sticky=W)
         # human param
         R_adjust_row += 1
-        self.frame_human = ttk.Labelframe(padding=5, width=width, height=100, text="Human parameter")
+        rowspn=4
+        self.frame_human = ttk.Labelframe(padding=10, text="Human parameter")
         self.frame_human.propagate(False)
-        self.frame_human.grid(row=R_adjust_row, column=1, sticky=W+E)
+        self.frame_human.grid(rowspan=rowspn,row=R_adjust_row, column=1, sticky=W+E)
         self.label_ = ttk.Label(self.frame_human, text="Number of people: ")
         self.label_.grid(row=1, column=0, sticky=W)
         self.entry_hn = IntVar(value=self.config.human_n)
@@ -301,52 +291,48 @@ class settings_gui(Tk):
                 value='1', variable=self.human_option)
         rb2.grid(columnspan=3, row=4, column=0, sticky=W)
         # observe option
-        R_adjust_row += 1
-        self.frame_observe = ttk.Labelframe(padding=5, width=width, height=100, text="Observe option")
+        R_adjust_row += rowspn
+        self.frame_observe = ttk.Labelframe(width=width, height=50, text="Observe option")
         self.frame_observe.propagate(False)
         self.frame_observe.grid(row=R_adjust_row, column=1, sticky=W+E)
         self.detect_TF = BooleanVar(value=self.config.human_detect)
         check = Checkbutton(self.frame_observe, text="Activate Human Detection",
                 variable=self.detect_TF)
-        check.grid(row=2, column=0, sticky=W)
+        check.grid(row=0, column=0, sticky=W)
 
         # Simulator param
         R_adjust_row += 1
-        self.frame_sim = ttk.Labelframe(padding=5, width=width, height=200, text="Simulator option")
+        self.frame_sim = ttk.Labelframe(width=width, height=100, text="Simulator option")
         self.frame_sim.propagate(False)
-        self.frame_sim.grid(rowspan=8, row=R_adjust_row, column=1, sticky=W+E+N)
-        self.wall_TF = BooleanVar(value=self.config.wall_render)
-        check = Checkbutton(self.frame_sim, text="Activate wall Rendering",
-                variable=self.wall_TF)
-        check.grid(row=1, column=0, sticky=W)
+        self.frame_sim.grid(rowspan=2,row=R_adjust_row, column=1, sticky=W+E+N)
         self.output_TF = BooleanVar(value=self.config.console_output)
         check = Checkbutton(self.frame_sim, text="Console output(collision & goal)",
                 variable=self.output_TF)
         check.grid(row=2, column=0, sticky=W)
         # test mode
-        R_adjust_row += 8
-        self.frame_test = ttk.Labelframe(padding=5, width=width, height=200, text="Test run mode")
+        R_adjust_row += 2
+        self.frame_test = ttk.Labelframe(padding=10, width=width, height=200, text="Test run mode")
         self.frame_test.propagate(False)
         self.frame_test.grid(rowspan=2, row=R_adjust_row, column=1, sticky=W+E+N)
         self.button_run = ttk.Button(self.frame_test,
                 text="Run",
                 command=self.run)
-        self.button_run.grid(row=1, column=0, sticky=W)
+        self.button_run.grid(row=0, column=0, sticky=W)
         self.button_close = ttk.Button(self.frame_test,
                 text="Close",
                 command=self.close)
-        self.button_close.grid(row=1, column=1, sticky=E)
+        self.button_close.grid(row=0, column=1, sticky=E)
         self.button_close["state"]=DISABLED
 
         # save config
         R_adjust_row += 2
-        self.frame_save_config = ttk.Label(padding=5)
+        self.frame_save_config = ttk.Label(padding=10)
         self.frame_save_config.grid(row=R_adjust_row, column=1)
         self.button_save_config = ttk.Button(self.frame_save_config,
                 text="Save",
                 command=self.save_config,
-                width=35)
-        self.button_save_config.pack(side=TOP)
+                width=38)
+        self.button_save_config.grid(rowspan=1, row=R_adjust_row, column=1)
 
         self.oval_draw(self.reso,"wyp")
         self.oval_draw(self.reso,"goal_wyp","red")
@@ -355,16 +341,16 @@ class settings_gui(Tk):
         ###################################
         ####### Frame display text ########
         ###################################
-        adrow = max(R_adjust_row,adjust_row+1)
+        adrow = max(R_adjust_row+1,adjust_row)
         self.frame_disp = ttk.Frame(padding=5)
         self.frame_disp.grid(rowspan=adrow, row=0, column=2)
-        self.scr_disp = ScrolledText(self.frame_disp, font=("",10), width=30,height=35)
-        self.scr_disp.pack()
+        self.scr_disp = ScrolledText(self.frame_disp, font=("",10), width=30,height=32)
+        self.scr_disp.pack()#grid(row=0,column=0)
         self.insert_disp_text("> ")
-
+                       
     def imagefile_dialog(self):
-        format_name = ".bmp .BMP .png .PNG .jpg .JPG"
-        dir_name = "maps/"
+        format_name = "#.bmp .BMP .png .PNG .jpg .JPG"
+        dir_name = "map#s/"
         fTyp = [("Image file",format_name)]
         file_path = filedialog.askopenfilename(
                 title = "open map image",
@@ -591,7 +577,6 @@ class settings_gui(Tk):
         save_data.lidar_reso = self.entry_lar.get() #deg
         save_data.human_n = self.entry_hn.get() #person
         save_data.human_detect = self.detect_TF.get() #bool
-        save_data.wall_render = self.wall_TF.get() #bool
         save_data.console_output = self.output_TF.get() #bool
         if save_data.thresh_map is None:
             messagebox.showwarning('Error', "Load map image.")
