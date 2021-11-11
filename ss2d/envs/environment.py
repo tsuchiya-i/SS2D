@@ -126,8 +126,6 @@ class SS2D_env(gym.Env):
 
         self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
             math.radians(random.uniform(179, -179)),0,0])
-        self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
-            math.radians(90),0,0])
 
         #initial human pose
         self.init_human()
