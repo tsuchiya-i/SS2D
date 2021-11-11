@@ -70,6 +70,8 @@ class raycast(object):
         raycast_data = []
         pxy_list = []
         total = 0
+        pose_xp = self.min2(int(self.pose[0]/self.xyreso),self.grid_width-1)
+        pose_yp = self.min2(int(self.grid_height-(self.pose[1]/self.xyreso)),self.grid_height-1)
         for i in range(lidar_num):
             straight_pixel_list = []
             angle = i * self.yawreso
@@ -79,15 +81,16 @@ class raycast(object):
                 laser_y = self.max_range*math.sin(global_angle)
                 top_x = self.pose[0]+laser_x
                 top_y = self.pose[1]+laser_y
-                pose_xp = self.min2(int(self.pose[0]/self.xyreso),self.grid_width-1)
-                pose_yp = self.min2(int(self.grid_height-(self.pose[1]/self.xyreso)),self.grid_height-1)
-                top_xp = self.min2(int(top_x/self.xyreso),self.grid_width-1)
-                top_yp = self.min2(int(self.grid_height-(top_y/self.xyreso)),self.grid_height-1)
-                top_xp = self.negative2zero(top_xp)
-                top_yp = self.negative2zero(top_yp)
+                top_xp = int(top_x/self.xyreso)
+                top_yp = int(self.grid_height-(top_y/self.xyreso))
 
                 straight_pixel_list = self.calc_straight_line(pose_yp,pose_xp,top_yp,top_xp)
                 for pix in straight_pixel_list:#0.00020~35s
+                    if pix[0]<0 or pix[0]>self.grid_height-1 or pix[1]<0 or pix[1]>self.grid_width-1:
+                        d = self.max_range
+                        lidar_top_pix = pix
+                        human_TF = 0
+                        break
                     if self.grid_map[pix[0]][pix[1]] > 0:
                         xy = np.array([pix[1]*self.xyreso,(self.grid_height-pix[0]-1)*self.xyreso])
                         d = np.linalg.norm(xy-self.pose[:2])
@@ -104,7 +107,7 @@ class raycast(object):
                 x = d*math.cos(global_angle)
                 y = d*math.sin(global_angle)
 
-                raycast_data.append([angle, d, i, human_TF, lidar_top_pix])#human_TF(0,1)
+                raycast_data.append([angle, d, i, human_TF, lidar_top_pix[0],lidar_top_pix[1]])#human_TF(0,1)
 
         raycast_data = np.array(raycast_data)
         return raycast_data

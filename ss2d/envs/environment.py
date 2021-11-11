@@ -56,6 +56,7 @@ class SS2D_env(gym.Env):
         self.world_time= 0.0 #[s]
         self.step_count = 0 #[]
         self.reset_count = 0 #[]
+        self.max_step = 1500
 
         # robot param
         self.robot_radius = self.config.robot_r #[m]
@@ -65,8 +66,8 @@ class SS2D_env(gym.Env):
         # action param
         self.max_velocity = 0.8   # [m/s]
         self.min_velocity = -0.4  # [m/s]
-        self.min_angular_velocity = math.radians(-40)  # [rad/s]
-        self.max_angular_velocity = math.radians(40) # [rad/s]
+        self.min_angular_velocity = math.radians(-60)  # [rad/s]
+        self.max_angular_velocity = math.radians(60) # [rad/s]
 
         # human param
         self.human_n = self.config.human_n
@@ -125,6 +126,8 @@ class SS2D_env(gym.Env):
 
         self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
             math.radians(random.uniform(179, -179)),0,0])
+        self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
+            math.radians(90),0,0])
 
         #initial human pose
         self.init_human()
@@ -144,6 +147,9 @@ class SS2D_env(gym.Env):
         return self.observation
 
     def step(self, action):
+        action[0] = self.my_clip(action[0],self.min_velocity,self.max_velocity)
+        action[1] = self.my_clip(action[1],self.min_angular_velocity,self.max_angular_velocity)
+
         self.step_count += 1
         self.world_time += self.dt
         
@@ -180,6 +186,28 @@ class SS2D_env(gym.Env):
 
     def reward(self, action):
         if self.is_goal():
+            rwd = 10
+        elif self.is_collision(False):
+            if self.collision_factor == 1:
+                rwd = -1
+            elif self.collision_factor == 2:
+                rwd = -2
+        elif not self.is_movable():
+            rwd = -1
+        else:
+            if self.lidar[np.argmin(self.lidar[:, 1]), 1] < self.robot_radius*2:
+                wall_rwd = -0.1
+            else:
+                wall_rwd = 0.0
+            vel_rwd = (action[0]-self.max_velocity)/self.max_velocity
+            dist_rwd = (self.old_distgoal[0]-self.distgoal[0])/(self.max_velocity*self.dt)
+            angle_rwd = (abs(self.old_distgoal[1])-abs(self.distgoal[1]))/(self.max_angular_velocity*self.dt)
+            time_reward = -self.world_time/(self.max_step*self.dt) 
+            rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + wall_rwd + time_reward
+        return rwd
+    """
+    def reward(self, action):
+        if self.is_goal():
             rwd = 25 
         elif self.is_collision(False):
             if self.collision_factor == 1:
@@ -199,6 +227,7 @@ class SS2D_env(gym.Env):
             time_reward = -self.world_time/(1500*self.dt) #max 1500steps
             rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + wall_rwd + time_reward
         return rwd
+    """
 
     def set_image_map(self, scale=1):
         #self.map_height, width, self.map, self.original_map self.max_dist set
@@ -216,7 +245,7 @@ class SS2D_env(gym.Env):
         self.max_dist = (self.map_height+self.map_width)*self.xyreso
 
     def is_goal(self, show=False):
-        if math.sqrt( (self.state[0]-self.goal[0])**2 + (self.state[1]-self.goal[1])**2 ) <= self.robot_radius*3:
+        if math.sqrt( (self.state[0]-self.goal[0])**2 + (self.state[1]-self.goal[1])**2 ) <= self.robot_radius*2:
             if show:
                 print("Goal")
             return True
@@ -436,7 +465,8 @@ class SS2D_env(gym.Env):
                 color = (170,205,102)
             else:
                 color = (208,224,64)
-            scan = cv2.line(disply, (x, y),(int(lidar[4][1]*self.mag),int(lidar[4][0]*self.mag)), color, thickness=2)
+            ppp = cv2.circle(disply, (int(lidar[5]*self.mag),int(lidar[4]*self.mag)), 5, (0,0,200), thickness=-1)
+            scan = cv2.line(disply, (x, y),(int(lidar[5]*self.mag),int(lidar[4]*self.mag)), color, thickness=2)
         for sim_id in self.human_state:
             hx = int(self.sim.getAgentPosition(sim_id)[0]/self.xyreso*self.mag)
             hy = int(((self.map_height-1)-self.sim.getAgentPosition(sim_id)[1]/self.xyreso)*self.mag)
@@ -463,6 +493,6 @@ class SS2D_env(gym.Env):
         else:
             return b
     def my_clip(self,a,min_,max_):
-        b = max2(a,min_)
-        b = min2(b,max_)
+        b = self.max2(a,min_)
+        b = self.min2(b,max_)
         return b
