@@ -32,7 +32,6 @@ class configClass():
         self.lidar_reso = 10 #deg
         self.human_n = 0 #person
         self.human_detect = True #bool
-        self.wall_render = False #bool
         self.console_output = True #bool
 
 
@@ -110,7 +109,6 @@ class SS2D_env(gym.Env):
         #rendering
         self.vis_lidar = True
         self.viewer = None
-        self.wall_switch = self.config.wall_render
 
     def reset(self):
         self.set_image_map()
