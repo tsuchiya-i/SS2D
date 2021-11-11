@@ -334,9 +334,9 @@ class settings_gui(Tk):
                 width=38)
         self.button_save_config.grid(rowspan=1, row=R_adjust_row, column=1)
 
-        self.oval_draw(self.reso,"wyp")
-        self.oval_draw(self.reso,"goal_wyp","red")
-        self.oval_draw(self.reso,"human_wyp","orange")
+        self.oval_draw("wyp")
+        self.oval_draw("goal_wyp","red")
+        self.oval_draw("human_wyp","orange")
 
         ###################################
         ####### Frame display text ########
@@ -389,7 +389,7 @@ class settings_gui(Tk):
                 self.oval_remove("wyp")
                 with open(file_path, mode='rb') as f:
                     self.waypoints = pickle.load(f)
-                self.oval_draw(self.reso,"wyp")
+                self.oval_draw("wyp")
 
     def goal_pointsfile_dialog(self):
         if self.map_reso_check():
@@ -406,7 +406,7 @@ class settings_gui(Tk):
                 self.oval_remove("goal_wyp")
                 with open(file_path, mode='rb') as f:
                     self.goal_points = pickle.load(f)
-                self.oval_draw(self.reso,"goal_wyp","red")
+                self.oval_draw("goal_wyp","red")
 
     def human_pointsfile_dialog(self):
         if self.map_reso_check():
@@ -423,7 +423,7 @@ class settings_gui(Tk):
                 self.oval_remove("human_wyp")
                 with open(file_path, mode='rb') as f:
                     self.human_points = pickle.load(f)
-                self.oval_draw(self.reso,"human_wyp","orange")
+                self.oval_draw("human_wyp","orange")
 
     def yamlfile_dialog(self):
         format_name = ".yaml"
@@ -479,9 +479,9 @@ class settings_gui(Tk):
         self.entry_nwyp_obj.delete(0,END)
         self.oval_remove("new_wyp")
         self.nwaypoints = []
-        self.oval_draw(self.reso,"wyp")
-        self.oval_draw(self.reso,"goal_wyp","red")
-        self.oval_draw(self.reso,"human_wyp","orange")
+        self.oval_draw("wyp")
+        self.oval_draw("goal_wyp","red")
+        self.oval_draw("human_wyp","orange")
 
     def create(self):
         if self.map_reso_check():
@@ -503,9 +503,9 @@ class settings_gui(Tk):
             self.map_canvas.unbind('<Button-1>')
             self.insert_disp_text("  Canceled.\n> ")
             self.entry_reso_obj.configure(state=NORMAL)
-            self.oval_draw(self.reso,"wyp")
-            self.oval_draw(self.reso,"goal_wyp","red")
-            self.oval_draw(self.reso,"human_wyp","orange")
+            self.oval_draw("wyp")
+            self.oval_draw("goal_wyp","red")
+            self.oval_draw("human_wyp","orange")
             return True
         self.nwaypoints.pop()
         self.delete_disp_text('end -2lines linestart', END)
@@ -609,7 +609,8 @@ class settings_gui(Tk):
         points = self.tag_name_select(tag_name)
         for i in range(len(points)):
             self.map_canvas.delete(tag_name+str(i))
-    def oval_draw(self,reso,tag_name,color="cyan"):
+    def oval_draw(self,tag_name,color="cyan"):
+        reso = self.entry_reso.get()
         points = self.tag_name_select(tag_name)
         for i, xy in enumerate(points):
             rx = self.entry_radius.get()/(self.width/self.canvas_width*reso)
