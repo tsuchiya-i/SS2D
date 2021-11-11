@@ -349,8 +349,8 @@ class settings_gui(Tk):
         self.insert_disp_text("> ")
                        
     def imagefile_dialog(self):
-        format_name = "#.bmp .BMP .png .PNG .jpg .JPG"
-        dir_name = "map#s/"
+        format_name = ".bmp .BMP .png .PNG .jpg .JPG"
+        dir_name = "maps/"
         fTyp = [("Image file",format_name)]
         file_path = filedialog.askopenfilename(
                 title = "open map image",
