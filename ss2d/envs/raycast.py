@@ -40,7 +40,6 @@ class raycast(object):
         elif j1 == j2:
             points_i = np.arange(i1, i2+self.my_sign(i2-i1), self.my_sign(i2-i1))
             points_j = np.full(len(points_i),j1)
-    
         else:
             di = i2 - i1
             dj = j2 - j1
@@ -52,9 +51,7 @@ class raycast(object):
             step_i = di/(max_d)
             step_j = dj/(max_d)
             points_i = np.round(np.arange(i1, i2+step_i/2, step_i))
-
             points_j = np.round(np.arange(j1, j2+step_j/2, step_j))
-            
             if len(points_i) > len(points_j):
                 points_i = points_i[1:]
             elif len(points_i) < len(points_j):
@@ -87,8 +84,8 @@ class raycast(object):
                 straight_pixel_list = self.calc_straight_line(pose_yp,pose_xp,top_yp,top_xp)
                 for pix in straight_pixel_list:#0.00020~35s
                     if pix[0]<0 or pix[0]>self.grid_height-1 or pix[1]<0 or pix[1]>self.grid_width-1:
+                        lidar_top_pix = [top_yp,top_xp]
                         d = self.max_range
-                        lidar_top_pix = pix
                         human_TF = 0
                         break
                     if self.grid_map[pix[0]][pix[1]] > 0:
