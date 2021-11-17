@@ -4,7 +4,6 @@ import yaml
 import os
 import sys
 import io
-import threading
 import json
 
 from tkinter import *
@@ -100,7 +99,7 @@ class settings_gui(Tk):
         self.botton_yaml = ttk.Button(self.frame_reso,
                 text="Browse...",
                 command=self.yamlfile_dialog)
-        self.botton_yaml.pack(side=RIGHT)
+        self.botton_yaml.pack(side=LEFT,padx=5)
 
         # Frame open map
         adjust_row += 1
@@ -314,25 +313,52 @@ class settings_gui(Tk):
         self.frame_test = ttk.Labelframe(padding=10, width=width, height=200, text="Test run mode")
         self.frame_test.propagate(False)
         self.frame_test.grid(rowspan=2, row=R_adjust_row, column=1, sticky=W+E+N)
+        self.entry_step = IntVar(value=100)
+        self.entry_step_obj = ttk.Entry(self.frame_test,
+                textvariable=self.entry_step,
+                width=10)
+        self.entry_step_obj.grid(row=0, column=0, sticky=W)
+        self.label_steps = ttk.Label(self.frame_test,text="steps")
+        self.label_steps.grid(row=0, column=1, sticky=W)
         self.button_run = ttk.Button(self.frame_test,
                 text="Run",
                 command=self.run)
-        self.button_run.grid(row=0, column=0, sticky=W)
-        self.button_close = ttk.Button(self.frame_test,
-                text="Close",
-                command=self.close)
-        self.button_close.grid(row=0, column=1, sticky=E)
-        self.button_close["state"]=DISABLED
+        self.button_run.grid(row=0, column=2, sticky=E, padx=5)
 
         # save config
         R_adjust_row += 2
-        self.frame_save_config = ttk.Label(padding=10)
-        self.frame_save_config.grid(row=R_adjust_row, column=1)
+        self.frame_save_config = ttk.Frame(padding=10)
+        self.frame_save_config.grid(row=R_adjust_row, column=0,columnspan=2,sticky=W+E)
+        self.label_save_config = ttk.Label(self.frame_save_config,text="new config file name: ")
+        self.label_save_config.grid(row=0, column=0)
+        self.entry_save_config = StringVar()
+        self.entry_save_config_obj = ttk.Entry(self.frame_save_config,
+                textvariable=self.entry_save_config,
+                width=15)
+        self.entry_save_config_obj.grid(row=0, column=1, padx=5)
+
         self.button_save_config = ttk.Button(self.frame_save_config,
                 text="Save",
-                command=self.save_config,
-                width=38)
-        self.button_save_config.grid(rowspan=1, row=R_adjust_row, column=1)
+                command=self.save_config)
+        self.button_save_config.grid(row=0, column=2)
+        self.line = ttk.Separator(self.frame_save_config, orient="vertical")
+        self.line.grid(row=0, column=3, padx=5, sticky=N+S)
+        self.line = ttk.Separator(self.frame_save_config)
+        self.line.grid(row=0, column=4, columnspan=5, sticky=W+E+N)
+        self.label_load_config = ttk.Label(self.frame_save_config,text="set config file:",font=("", 13))
+        self.label_load_config.grid(row=0, column=4,rowspan=2, sticky=W+S, padx=5)
+        self.entry_load_config = StringVar()
+        self.entry_load_config_obj = ttk.Entry(self.frame_save_config,
+                textvariable=self.entry_load_config,
+                width=40)
+        self.entry_load_config_obj.grid(row=0, column=5,rowspan=2, sticky=W+S,padx=5)
+        self.button_load_config = ttk.Button(self.frame_save_config,
+                text="Set",
+                command=self.load_config)
+        self.button_load_config.grid(row=0, column=6,rowspan=2, sticky=W+S)
+
+        self.line = ttk.Separator(self.frame_save_config)
+        self.line.grid(row=1, column=0, columnspan=4,pady=5, sticky=W+E)
 
         self.oval_draw("wyp")
         self.oval_draw("goal_wyp","red")
@@ -518,21 +544,12 @@ class settings_gui(Tk):
             return False
         with open("./ss2d/envs/test_config.bin", mode='wb') as f:
             pickle.dump(test_config, f)
-        thread = threading.Thread(target=self.run_simulator)
-        thread.start()
-        self.button_run["state"] = DISABLED
-        self.button_close["state"] = NORMAL
-
-    def close(self):
-        self.run_flag = False
-        self.button_run["state"] = NORMAL
-        self.button_close["state"] = DISABLED
+        self.run_simulator()
 
     def run_simulator(self):
-        self.run_flag = True
         self.env = gym.make('ss2d-v0')
         observation = self.env.reset()
-        while self.run_flag:
+        for i in range(self.entry_step.get()):
             self.env.render()
             action = self.env.action_space.sample()
             observation, reward, done,  _ = self.env.step(action)
@@ -540,7 +557,7 @@ class settings_gui(Tk):
                 self.env.reset()
         self.env.close()
         
-    def save_config(self):
+    def save_config(self,):
         save_data = self.create_save_config_obj()
         if save_data is None:
             return False
@@ -551,9 +568,39 @@ class settings_gui(Tk):
             text = text.replace(", [",",\n[")
             sys.stdout = sys.__stdout__
 
-        with open("./ss2d/envs/config.bin", mode='wb') as f:
+        if self.entry_save_config.get() == "":
+            messagebox.showwarning('Error', "No file name entered.")
+            return False
+        else:
+            file_name = self.entry_save_config.get()
+            if file_name[-4:]==".bin" or file_name[-4:]==".BIN":
+                file_name = file_name[:-4]
+            if os.path.exists('./config/'+file_name+'.bin'):
+                yn = messagebox.askquestion("Confirm","Overwrite file "+file_name+'.bin ?')
+                if yn == "no":
+                    return False
+        with open("./config/"+file_name+'.bin', mode='wb') as f:
             pickle.dump(save_data, f)
         self.insert_disp_text(text+"Setting Saved.\n\n>")
+
+    def load_config(self):
+        format_name = ".bin"
+        dir_name = "config/"
+        fTyp = [("config binary file",format_name)]
+        file_path = filedialog.askopenfilename(
+                title = "open waypoints binary file",
+                filetypes = fTyp,
+                initialdir = "./"+dir_name)
+        if len(file_path):
+            self.entry_load_config.set(file_path)
+            with open(file_path, mode='rb') as f:
+                load_data = pickle.load(f)
+            self.load_config_set(load_data)
+            set_data = self.create_save_config_obj()
+            with open("./ss2d/envs/config.bin", mode='wb') as f:
+                pickle.dump(set_data, f)
+            self.insert_disp_text("Setting Set.\n\n>")
+
 
     def create_save_config_obj(self):
         save_data = configClass()
@@ -594,6 +641,48 @@ class settings_gui(Tk):
             messagebox.showwarning('Error', "Correct human points.")
             return None
         return save_data
+
+    
+    def load_config_set(self,load_data):
+        self.cv_thresh_image = load_data.thresh_map
+        self.img = Image.fromarray(self.cv_thresh_image)
+        self.width, self.height = self.img.size
+        self.img = self.img.resize((self.canvas_width, self.canvas_height))
+        self.map_image = ImageTk.PhotoImage(self.img)
+        if self.map_canvas_obj is not None:
+                self.map_canvas.delete(self.map_canvas_obj)
+        self.map_canvas_obj = self.map_canvas.create_image(
+                self.canvas_width/2,
+                self.canvas_height/2,
+                image=self.map_image)
+        self.oval_remove("wyp")
+        self.oval_remove("goal_wyp")
+        self.oval_remove("human_wyp")
+        self.img_color = load_data.color_map
+        self.entry_reso.set(load_data.reso)
+        self.reso = load_data.reso
+        self.waypoints = load_data.start_points
+        self.goal_points = load_data.goal_points
+        self.human_points = load_data.human_points
+        self.entry_dt.set(load_data.world_dt)
+        self.entry_radius.set(load_data.robot_r)
+        self.entry_lmax.set(load_data.lidar_max)
+        self.entry_lmin.set(load_data.lidar_min)
+        self.entry_la.set(load_data.lidar_angle)
+        self.entry_lar.set(load_data.lidar_reso)
+        self.entry_hn.set(load_data.human_n)
+        if self.waypoints == self.goal_points:
+            self.human_option.set(1)
+        else:
+            self.human_option.set(0)
+        if self.goal_points == self.waypoints:
+            self.goal_option.set(1)
+        else:
+            self.goal_option.set(0)
+        self.oval_draw("wyp")
+        self.oval_draw("goal_wyp","red")
+        self.oval_draw("human_wyp","orange")
+
         
     def delete_disp_text(self,start,end):
         self.scr_disp["state"] = NORMAL
