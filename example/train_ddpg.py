@@ -52,11 +52,9 @@ def main():
     x = Dense(64)(x)
     x = Activation('relu')(x)
     x = Dense(1)(x)
-    x = Activation('linear')(x)
+    x = Activation('tanh')(x)
     critic = Model(inputs=[action_input, observation_input], outputs=x)
-    print("##############################")
     print(critic.summary())
-    print("##############################")
     #from tensorflow.keras.utils import plot_model
     #plot_model(
     #    critic,
@@ -70,7 +68,7 @@ def main():
     
     agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
                       memory=memory, nb_steps_warmup_critic=100, nb_steps_warmup_actor=100,
-                      random_process=random_process, gamma=.99, target_model_update=1e-3)
+                      random_process=random_process, gamma=.60, target_model_update=1e-3)
     agent.compile(Adam(lr=.001, clipnorm=1.), metrics=['mae'])
     tensorboard_callback = TensorBoard(log_dir="./logs")
     
