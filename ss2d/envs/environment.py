@@ -40,7 +40,7 @@ class SS2D_env(gym.Env):
         if os.path.exists(__file__.replace("environment.py","")+"test_config.bin"):
             with open(__file__.replace("environment.py","")+"test_config.bin", mode='rb') as f:
                 self.config = pickle.load(f)
-                print("----test config data----")
+                print("----test mode----")
             os.remove(__file__.replace("environment.py","")+"test_config.bin")
         else:
             with open(__file__.replace("environment.py","")+"config.bin", mode='rb') as f:
@@ -57,6 +57,7 @@ class SS2D_env(gym.Env):
         self.step_count = 0 #[]
         self.reset_count = 0 #[]
         self.max_step = 1500
+        self.reward_=0
 
         # robot param
         self.robot_radius = self.config.robot_r #[m]
@@ -66,8 +67,8 @@ class SS2D_env(gym.Env):
         # action param
         self.max_velocity = 0.8   # [m/s]
         self.min_velocity = -0.4  # [m/s]
-        self.min_angular_velocity = math.radians(-60)  # [rad/s]
-        self.max_angular_velocity = math.radians(60) # [rad/s]
+        self.min_angular_velocity = math.radians(-40)  # [rad/s]
+        self.max_angular_velocity = math.radians(40) # [rad/s]
 
         # human param
         self.human_n = self.config.human_n
@@ -111,6 +112,7 @@ class SS2D_env(gym.Env):
         self.vis_lidar = True
         self.viewer = None
 
+
     def reset(self):
         self.set_image_map()
         self.robot_r_cell = int(self.robot_radius/self.xyreso) #[cell]
@@ -126,6 +128,8 @@ class SS2D_env(gym.Env):
 
         self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
             math.radians(random.uniform(179, -179)),0,0])
+        #self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
+        #    math.radians(0),0,0])
 
         #initial human pose
         self.init_human()
@@ -155,11 +159,11 @@ class SS2D_env(gym.Env):
         self.robot_step(action)
         self.sim.setAgentPosition(self.rvo_robot,(self.state[0],self.state[1]))
         self.observation = self.observe()
-        reward = self.reward(action)
+        self.reward_ = self.reward(action)
         self.done = self.is_done(self.show)
         self.old_distgoal = self.distgoal
 
-        return self.observation, reward, self.done, {}
+        return self.observation, self.reward_, self.done, {}
     
     def observe(self):
         # Raycasting
@@ -184,24 +188,24 @@ class SS2D_env(gym.Env):
 
     def reward(self, action):
         if self.is_goal():
-            rwd = 10
+            rwd = 25
         elif self.is_collision(False):
             if self.collision_factor == 1:
-                rwd = -1
+                rwd = -25
             elif self.collision_factor == 2:
-                rwd = -2
+                rwd = -35
         elif not self.is_movable():
-            rwd = -1
+            rwd = -25
         else:
-            if self.lidar[np.argmin(self.lidar[:, 1]), 1] < self.robot_radius*2:
-                wall_rwd = -0.1
-            else:
-                wall_rwd = 0.0
+            #if self.lidar[np.argmin(self.lidar[:, 1]), 1] < self.robot_radius*2:
+            #    wall_rwd = -0.1
+            #else:
+            #    wall_rwd = 0.0
             vel_rwd = (action[0]-self.max_velocity)/self.max_velocity
             dist_rwd = (self.old_distgoal[0]-self.distgoal[0])/(self.max_velocity*self.dt)
             angle_rwd = (abs(self.old_distgoal[1])-abs(self.distgoal[1]))/(self.max_angular_velocity*self.dt)
             time_reward = -self.world_time/(self.max_step*self.dt) 
-            rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + wall_rwd + time_reward
+            rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + time_reward
         return rwd
     """
     def reward(self, action):
@@ -463,12 +467,17 @@ class SS2D_env(gym.Env):
                 color = (170,205,102)
             else:
                 color = (208,224,64)
-            ppp = cv2.circle(disply, (int(lidar[5]*self.mag),int(lidar[4]*self.mag)), 5, (0,0,200), thickness=-1)
             scan = cv2.line(disply, (x, y),(int(lidar[5]*self.mag),int(lidar[4]*self.mag)), color, thickness=2)
         for sim_id in self.human_state:
             hx = int(self.sim.getAgentPosition(sim_id)[0]/self.xyreso*self.mag)
             hy = int(((self.map_height-1)-self.sim.getAgentPosition(sim_id)[1]/self.xyreso)*self.mag)
             human = cv2.circle(disply, (hx, hy), self.human_r_pix, (226,43,138), thickness=-1)
+        for i in range(3):
+            for j in range(3):
+                text = cv2.putText(disply, 'reward:'+str(self.reward_), (9+i, 29+j), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,255), thickness=2)
+        text = cv2.putText(disply, 'reward:'+str(self.reward_), (10, 30), 
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,0), thickness=2)
 
         cv2.imshow('SS2D',disply)
         cv2.waitKey(1)
