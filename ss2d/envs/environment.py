@@ -146,6 +146,7 @@ class SS2D_env(gym.Env):
         # world_time reset
         self.world_time = 0.0
         self.reset_count += 1
+        self.step_count = 0
         return self.observation
 
     def step(self, action):
@@ -197,15 +198,15 @@ class SS2D_env(gym.Env):
         elif not self.is_movable():
             rwd = -25
         else:
-            #if self.lidar[np.argmin(self.lidar[:, 1]), 1] < self.robot_radius*2:
-            #    wall_rwd = -0.1
-            #else:
-            #    wall_rwd = 0.0
+            if self.lidar[np.argmin(self.lidar[:, 1]), 1] < self.robot_radius*2:
+                wall_rwd = -0.1
+            else:
+                wall_rwd = 0.0
             vel_rwd = (action[0]-self.max_velocity)/self.max_velocity
             dist_rwd = (self.old_distgoal[0]-self.distgoal[0])/(self.max_velocity*self.dt)
             angle_rwd = (abs(self.old_distgoal[1])-abs(self.distgoal[1]))/(self.max_angular_velocity*self.dt)
             time_reward = -self.world_time/(self.max_step*self.dt) 
-            rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + time_reward
+            rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + time_reward + wall_rwd
         return rwd
     """
     def reward(self, action):
