@@ -549,7 +549,9 @@ class settings_gui(Tk):
     def run_simulator(self):
         self.env = gym.make('ss2d-v0')
         observation = self.env.reset()
+        import time
         for i in range(self.entry_step.get()):
+            #time.sleep(1)
             self.env.render()
             action = self.env.action_space.sample()
             observation, reward, done,  _ = self.env.step(action)
@@ -671,6 +673,8 @@ class settings_gui(Tk):
         self.entry_la.set(load_data.lidar_angle)
         self.entry_lar.set(load_data.lidar_reso)
         self.entry_hn.set(load_data.human_n)
+        self.detect_TF.set(load_data.human_detect)
+        self.output_TF.set(load_data.console_output)
         if self.waypoints == self.goal_points:
             self.human_option.set(1)
         else:
