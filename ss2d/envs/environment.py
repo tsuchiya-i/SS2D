@@ -58,6 +58,7 @@ class SS2D_env(gym.Env):
         self.reset_count = 0 #[]
         self.max_step = 1500
         self.reward_=0
+        self.max_goal_dist = 20
 
         # robot param
         self.robot_radius = self.config.robot_r #[m]
@@ -120,8 +121,9 @@ class SS2D_env(gym.Env):
         
         self.start_p_num = random.randint(0, len(self.waypoints)-1)
         goal_p_num = random.randint(0, len(self.goal_points)-1)
-        if (self.goal_points == self.waypoints).all():
-            while self.start_p_num==goal_p_num:
+
+        if self.goal_points.tolist() == self.waypoints.tolist():
+            while self.start_p_num == goal_p_num:
                 goal_p_num= random.randint(0, len(self.waypoints)-1)
         self.goal = self.goal_points[goal_p_num]
         self.start = self.waypoints[self.start_p_num]
@@ -174,15 +176,16 @@ class SS2D_env(gym.Env):
         self.lidar = Raycast.raycasting()
 
         human_dist_data = self.lidar[:, 3]*self.lidar[:, 1]
-        human_dist_data = np.where(human_dist_data==0,10,human_dist_data)
+        human_dist_data = np.where(human_dist_data==0,self.max_range,human_dist_data)
 
         if self.human_detect == 0:
-            observation = self.lidar[:, 1]
+            observation = self.lidar[:, 1]/self.max_range
         elif self.human_detect == 1:
-            observation = np.concatenate([self.lidar[:, 1], human_dist_data], 0)
+            observation = np.concatenate([self.lidar[:, 1], human_dist_data], 0)/self.max_range
 
         self.distgoal = self.calc_goal_info()
-        distgoal_norm = np.array([self.distgoal[0],self.distgoal[1]])
+        distgoal_norm = np.array([self.min2(self.distgoal[0],self.max_goal_dist)/self.max_goal_dist,
+            self.distgoal[1]/math.pi])
         observation = np.concatenate([observation, distgoal_norm], 0)
 
         return observation#lidar,human,dist,angle_dist(clock wise)
@@ -199,7 +202,7 @@ class SS2D_env(gym.Env):
             rwd = -25
         else:
             if self.lidar[np.argmin(self.lidar[:, 1]), 1] < self.robot_radius*2:
-                wall_rwd = -0.1
+                wall_rwd = -1.0
             else:
                 wall_rwd = 0.0
             vel_rwd = (action[0]-self.max_velocity)/self.max_velocity
@@ -208,29 +211,6 @@ class SS2D_env(gym.Env):
             time_reward = -self.world_time/(self.max_step*self.dt) 
             rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + time_reward + wall_rwd
         return rwd
-    """
-    def reward(self, action):
-        if self.is_goal():
-            rwd = 25 
-        elif self.is_collision(False):
-            if self.collision_factor == 1:
-                rwd = -25
-            elif self.collision_factor == 2:
-                rwd = -40
-        elif not self.is_movable():
-            rwd = -25
-        else:
-            if self.lidar[np.argmin(self.lidar[:, 1]), 1] < self.robot_radius*2:
-                wall_rwd = -1.0
-            else:
-                wall_rwd = 0.0
-            vel_rwd = (action[0]-self.max_velocity)/self.max_velocity
-            dist_rwd = (self.old_distgoal[0]-self.distgoal[0])/(self.max_velocity*self.dt)
-            angle_rwd = (abs(self.old_distgoal[1])-abs(self.distgoal[1]))/(self.max_angular_velocity*self.dt)
-            time_reward = -self.world_time/(1500*self.dt) #max 1500steps
-            rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + wall_rwd + time_reward
-        return rwd
-    """
 
     def set_image_map(self, scale=1):
         #self.map_height, width, self.map, self.original_map self.max_dist set
@@ -322,7 +302,7 @@ class SS2D_env(gym.Env):
         self.target_position = [[-1,-1]] * self.human_n
         
         #spawn on waypoints
-        if (self.human_waypoints == self.waypoints).all():
+        if self.human_waypoints.tolist() == self.waypoints.tolist():
             while len(rand_num_his) < self.human_n:
                 rand_num = random.randint(0, len(self.waypoints)-1)
                 if (not rand_num in rand_num_his) and (rand_num != self.start_p_num):
