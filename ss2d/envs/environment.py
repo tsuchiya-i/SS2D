@@ -34,34 +34,24 @@ class configClass():
         self.human_detect = True #bool
         self.console_output = True #bool
 
-
 class SS2D_env(gym.Env):
     def __init__(self):
-        if os.path.exists(__file__.replace("environment.py","")+"test_config.bin"):
-            with open(__file__.replace("environment.py","")+"test_config.bin", mode='rb') as f:
-                self.config = pickle.load(f)
-                print("----test mode----")
-            os.remove(__file__.replace("environment.py","")+"test_config.bin")
-        else:
-            with open(__file__.replace("environment.py","")+"config.bin", mode='rb') as f:
-                self.config = pickle.load(f)
-                print("----Load config data----")
+        flist = os.listdir(__file__.replace("environment.py",""))
+        self.config_list = [s for s in flist if (".bin" in s and not "test_config" in s)]
+        self.config_count = len(self.config_list)
+        self.reset_count = 0 #[]
 
-        self.show = self.config.console_output #bool
+        self.load_config()
         # world param
-        self.dt = self.config.world_dt #[s]
         self.map_height= 0 #[pix]
         self.map_width = 0 #[pix]
         self.max_dist = 1000
         self.world_time= 0.0 #[s]
         self.step_count = 0 #[]
-        self.reset_count = 0 #[]
         self.max_step = 1500
         self.reward_=0
         self.max_goal_dist = 20
 
-        # robot param
-        self.robot_radius = self.config.robot_r #[m]
         # state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)
         self.state = np.array([0.0, 0.0, math.radians(0), 0.0, 0.0])
 
@@ -72,21 +62,9 @@ class SS2D_env(gym.Env):
         self.max_angular_velocity = math.radians(40) # [rad/s]
 
         # human param
-        self.human_n = self.config.human_n
         self.human_vel_min = 0.8
         self.human_vel_max = 0.8
         self.human_radius = 0.25 #[m]
-        self.nearest_j = [0] * self.human_n #
-
-        # lidar param
-        self.yawreso = math.radians(self.config.lidar_reso) # ※360から割り切れる(1~360)[rad]
-        self.min_range = self.config.lidar_min # [m]
-        self.max_range = self.config.lidar_max # [m]
-        self.view_angle = math.radians(self.config.lidar_angle) #[rad]
-        self.lidarnum = int(int(self.view_angle/(2*self.yawreso))*2+1)
-
-        #observe param
-        self.human_detect = self.config.human_detect #F:(lidar+goal) T:(lidar+human+goal)
 
         # set action_space (velocity[m/s], omega[rad/s])
         self.action_low  = np.array([self.min_velocity, self.min_angular_velocity]) 
@@ -101,20 +79,42 @@ class SS2D_env(gym.Env):
             self.observation_high = np.concatenate([[self.max_range]*(self.lidarnum*2) ,[self.max_dist,-math.pi]],0)
         self.observation_space = spaces.Box(low = self.observation_low, high = self.observation_high, dtype=np.float32)
 
-        #way point
         #self.way_point_set() #default:0
+
+    def load_config(self):
+        config_id = self.reset_count%self.config_count
+        if os.path.exists(__file__.replace("environment.py","")+"test_config.bin"):
+            with open(__file__.replace("environment.py","")+"test_config.bin", mode='rb') as f:
+                self.config = pickle.load(f)
+                #print("----test mode----")
+            os.remove(__file__.replace("environment.py","")+"test_config.bin")
+            self.test_mode = True
+        else:
+            with open(__file__.replace("environment.py","")+self.config_list[config_id], mode='rb') as f:
+                self.config = pickle.load(f)
+            self.test_mode = False
+                #print("----Load config data----")
+        self.dt = self.config.world_dt #[s]
+        self.show = self.config.console_output #bool
+        self.robot_radius = self.config.robot_r #[m]
+        self.human_n = self.config.human_n
+        self.nearest_j = [0] * self.human_n #
+        self.yawreso = math.radians(self.config.lidar_reso) # ※360から割り切れる(1~360)[rad]
+        self.min_range = self.config.lidar_min # [m]
+        self.max_range = self.config.lidar_max # [m]
+        self.view_angle = math.radians(self.config.lidar_angle) #[rad]
+        self.lidarnum = int(int(self.view_angle/(2*self.yawreso))*2+1)
+        self.human_detect = self.config.human_detect #F:(lidar+goal) T:(lidar+human+goal)
         self.waypoints = np.array(self.config.start_points)
         self.human_waypoints = np.array(self.config.human_points)
         self.goal_points = np.array(self.config.goal_points)
         self.near_n = 2 #Destination selection(current location+near_n)
         self.neighbors_vector_set(self.near_n,neighbors_id=0)
-
-        #rendering
-        self.vis_lidar = True
         self.viewer = None
 
-
     def reset(self):
+        if not self.test_mode:
+            self.load_config()
         self.set_image_map()
         self.robot_r_cell = int(self.robot_radius/self.xyreso) #[cell]
         self.human_r_pix = int(self.human_radius/self.xyreso)
@@ -131,7 +131,7 @@ class SS2D_env(gym.Env):
         self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
             math.radians(random.uniform(179, -179)),0,0])
         #self.state = np.array([self.waypoints[self.start_p_num][0], self.waypoints[self.start_p_num][1], \
-        #    math.radians(0),0,0])
+        #    math.radians(random.uniform(40, 200)),0,0])
 
         #initial human pose
         self.init_human()
@@ -195,6 +195,29 @@ class SS2D_env(gym.Env):
             rwd = 25
         elif self.is_collision(False):
             if self.collision_factor == 1:
+                rwd = -40
+            elif self.collision_factor == 2:
+                rwd = -50
+        elif not self.is_movable():
+            rwd = -25
+        else:
+            if self.lidar[np.argmin(self.lidar[:, 1]), 1] < self.robot_radius*2:
+                wall_rwd = -1.0
+            else:
+                wall_rwd = 0.0
+            vel_rwd = (action[0]-self.max_velocity)/self.max_velocity
+            oscillation_rwd = abs(action[1])/self.max_angular_velocity
+            dist_rwd = (self.old_distgoal[0]-self.distgoal[0])/(self.max_velocity*self.dt)
+            angle_rwd = (abs(self.old_distgoal[1])-abs(self.distgoal[1]))/(self.max_angular_velocity*self.dt)
+            time_reward = -self.world_time/(self.max_step*self.dt) 
+            rwd = (oscillation_rwd + 2*vel_rwd + 2*dist_rwd + 2*angle_rwd)/7 + time_reward + wall_rwd
+        return rwd
+    """
+    def reward__dekita(self, action):
+        if self.is_goal():
+            rwd = 25
+        elif self.is_collision(False):
+            if self.collision_factor == 1:
                 rwd = -25
             elif self.collision_factor == 2:
                 rwd = -35
@@ -211,6 +234,7 @@ class SS2D_env(gym.Env):
             time_reward = -self.world_time/(self.max_step*self.dt) 
             rwd = (vel_rwd + 2*dist_rwd + 2*angle_rwd)/5 + time_reward + wall_rwd
         return rwd
+    """
 
     def set_image_map(self, scale=1):
         #self.map_height, width, self.map, self.original_map self.max_dist set
