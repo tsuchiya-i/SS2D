@@ -14,8 +14,13 @@ weight_path = "./trained_weight/ddpg_weights_actor.h5f"
 
 args = sys.argv
 if len(args)>1:
-    check_weight_path = args[1]
-    weight_path = args[1][:-6]
+    args_str = args[1]
+    if args_str[0] != "." and args_str[0] != "/":
+        args_str = "./"+args_str
+    if args_str[-1] != "/":
+        args_str = args_str + "/"
+    check_weight_path = args_str + "ddpg_actor.h5f.index"
+    weight_path = args_str + "ddpg_actor.h5f"
 
 # Get the environment and extract the number of actions.
 env = gym.make('ss2d-v0')
@@ -50,4 +55,3 @@ while True:
     observation, reward, done,  GoalOrNot = env.step(action.reshape(2))
     if done or env.step_count>150:
         env.reset()
-
