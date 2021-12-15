@@ -1,10 +1,11 @@
 #coding:utf-8
 
+import random
 import numpy as np
 import math
 
 class raycast(object):
-    def __init__(self, pose, grid_map, grid_height, grid_width, xyreso, yawreso, min_range, max_range, view_angle):
+    def __init__(self, pose, grid_map, grid_height, grid_width, xyreso, yawreso, min_range, max_range, view_angle, lidar_error):
         self.pose      = pose
         self.grid_map  = grid_map
         self.grid_height = grid_height
@@ -14,6 +15,7 @@ class raycast(object):
         self.min_range = min_range
         self.max_range = max_range
         self.view_angle = view_angle
+        self.lidar_error = lidar_error
 
     def min2(self,x,y):
         if x < y:
@@ -101,9 +103,9 @@ class raycast(object):
                     d = self.max_range
                     lidar_top_pix = [top_yp,top_xp]
                     human_TF = 0
-                x = d*math.cos(global_angle)
-                y = d*math.sin(global_angle)
-
+                
+                if self.lidar_error > 0:
+                    d = d + random.uniform(-self.lidar_error, self.lidar_error)
                 raycast_data.append([angle, d, i, human_TF, lidar_top_pix[0],lidar_top_pix[1]])#human_TF(0,1)
 
         raycast_data = np.array(raycast_data)

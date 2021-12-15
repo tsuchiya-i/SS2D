@@ -79,6 +79,7 @@ class SS2D_env(gym.Env):
             self.observation_high = np.concatenate([[self.max_range]*(self.lidarnum*2) ,[self.max_dist,-math.pi]],0)
         self.observation_space = spaces.Box(low = self.observation_low, high = self.observation_high, dtype=np.float32)
 
+        self.lidar_error = 0.1 #±0.1 
         #self.way_point_set() #default:0
 
     def load_config(self):
@@ -172,12 +173,13 @@ class SS2D_env(gym.Env):
         # Raycasting
         Raycast = raycast(self.state[0:3], self.map, self.map_height,self.map_width, 
                                 self.xyreso, self.yawreso,
-                                self.min_range, self.max_range,self.view_angle)
+                                self.min_range, self.max_range,self.view_angle,self.lidar_error)
         self.lidar = Raycast.raycasting()
 
         human_dist_data = self.lidar[:, 3]*self.lidar[:, 1]
         human_dist_data = np.where(human_dist_data==0,self.max_range,human_dist_data)
 
+        #self.lidar[:, 1] = self.lidar[:, 1]*random.uniform(0.99, 1.01)
         if self.human_detect == 0:
             observation = self.lidar[:, 1]/self.max_range
         elif self.human_detect == 1:
